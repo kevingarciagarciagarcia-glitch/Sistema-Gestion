@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Gestión</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🏢 Sistema de Gestión</div>
+    <div></div>
+    <%- include('partials/userbox') %>
+  </header>
+  <main>
+    <h1>Módulos</h1>
+    <% if (visibleModules.length === 0) { %>
+      <p class="empty">Tu perfil no tiene acceso a ningún módulo todavía. Contacta a un administrador.</p>
+    <% } else { %>
+      <div class="module-grid">
+        <% visibleModules.forEach(mod => { %>
+          <a class="module-card" href="<%= mod.homeUrl %>">
+            <div class="module-icon"><%= mod.icon %></div>
+            <div class="module-title"><%= mod.label %></div>
+            <div class="module-desc"><%= mod.description %></div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </main>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<%- include('../partials/header', { currentPage: 'produccion' }) %>
+
+<h1>Inventario · Producto en Producción</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<%- include('../partials/import-result') %>
+
+<div class="toolbar">
+  <form class="search-box" method="get" action="/inventario/productos/produccion">
+    <input type="text" name="q" placeholder="Buscar por nombre o SKU..." value="<%= search %>">
+  </form>
+  <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+    <%- include('../partials/bulk-import-buttons', { templateUrl: '/inventario/productos/produccion/plantilla', importUrl: '/inventario/productos/produccion/importar' }) %>
+    <a class="btn" href="/inventario/productos/new?category_id=<%= topCategoryId %>">+ Nuevo producto</a>
+  </div>
+</div>
+
+<div class="card">
+  <% if (products.length === 0) { %>
+    <p class="empty">No hay productos en producción registrados.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th><th>Nombre</th>
+          <th>Color</th><th title="Ancho">A</th><th title="Largo">L</th><th title="Espesor">E</th><th>Fuelle</th>
+          <th>Referencia</th><th>Descripción</th><th>Subcategoría</th><th>Unidad</th><th>Stock</th><th>Mínimo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% products.forEach(p => { %>
+          <tr>
+            <td><%= p.sku %></td>
+            <td><%= p.name %></td>
+            <td><%= p.color || '—' %></td>
+            <td><%= p.width ?? '—' %></td>
+            <td><%= p.length ?? '—' %></td>
+            <td><%= p.thickness ?? '—' %></td>
+            <td>
+              <% if (!p.has_fuelle) { %>—<%
+                } else if (p.fuelle_type === 'lateral') { %>Lat: <%= p.fuelle_measure_1 ?? '—' %><%
+                } else if (p.fuelle_type === 'fondo') { %>Fon: <%= p.fuelle_measure_1 ?? '—' %><%
+                } else { %>Sup: <%= p.fuelle_measure_1 ?? '—' %> / Fon: <%= p.fuelle_measure_2 ?? '—' %><%
+              } %>
+            </td>
+            <td><%= p.has_printing ? (p.printing_reference || '—') : '—' %></td>
+            <td><%= p.description || '—' %></td>
+            <td><%= p.category_name || '—' %></td>
+            <td><%= p.unit_name || '—' %></td>
+            <td>
+              <% if (p.quantity <= p.min_stock) { %>
+                <span class="badge low"><%= p.quantity %></span>
+              <% } else { %>
+                <%= p.quantity %>
+              <% } %>
+            </td>
+            <td><%= p.min_stock %></td>
+            <td class="actions-cell">
+              <a class="btn secondary" href="/inventario/productos/<%= p.id %>/edit">Editar</a>
+              <form class="inline" method="post" action="/inventario/productos/<%= p.id %>/delete" onsubmit="return confirm('¿Eliminar este producto?');">
+                <button class="btn danger" type="submit">Eliminar</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

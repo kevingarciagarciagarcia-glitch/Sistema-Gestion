@@ -1,0 +1,53 @@
+<%- include('../partials/orders-header', { currentPage: 'orders' }) %>
+
+<h1>Órdenes de Pedido</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="toolbar">
+  <form class="search-box" method="get" action="/pedidos">
+    <input type="text" name="q" placeholder="Buscar por cliente o N° proforma..." value="<%= search %>">
+  </form>
+  <a class="btn" href="/pedidos/new">+ Nueva orden</a>
+</div>
+
+<div class="card">
+  <% if (orders.length === 0) { %>
+    <p class="empty">Todavía no hay órdenes de pedido registradas.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>N° OP</th><th>Cliente</th><th>N° Proforma</th><th>Fecha Pedido</th><th>Fecha Entrega</th>
+          <th>Vendedor</th><th>Subtotal</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% orders.forEach(o => { %>
+          <tr>
+            <td><strong>#<%= o.id %></strong></td>
+            <td><%= o.client %></td>
+            <td><%= o.proforma_number || '—' %></td>
+            <td><%= o.order_date || '—' %></td>
+            <td><%= o.delivery_date || '—' %></td>
+            <td><%= o.seller_name || '—' %></td>
+            <td>$<%= o.subtotal.toFixed(2) %></td>
+            <td class="actions-cell">
+              <a class="btn secondary" href="/pedidos/<%= o.id %>">Ver</a>
+              <a class="btn secondary" href="/pedidos/<%= o.id %>/edit">Editar</a>
+              <form class="inline" method="post" action="/pedidos/<%= o.id %>/delete" onsubmit="return confirm('¿Eliminar esta orden de pedido?');">
+                <button class="btn danger" type="submit">Eliminar</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,13 @@
+<% if (typeof importResult !== 'undefined' && importResult) { %>
+  <div class="alert <%= importResult.errors.length > 0 ? 'error' : '' %>" style="<%= importResult.errors.length === 0 ? 'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;' : '' %>">
+    <strong><%= importResult.created %></strong> elemento(s) importado(s) correctamente.
+    <% if (importResult.errors.length > 0) { %>
+      <div style="margin-top: 0.5rem;">
+        <strong><%= importResult.errors.length %> fila(s) con error:</strong>
+        <ul style="margin: 0.25rem 0 0; padding-left: 1.25rem;">
+          <% importResult.errors.forEach(e => { %><li><%= e %></li><% }) %>
+        </ul>
+      </div>
+    <% } %>
+  </div>
+<% } %>

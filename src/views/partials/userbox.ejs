@@ -1,0 +1,9 @@
+<div style="display: flex; align-items: center; gap: 0.75rem; margin-left: 1rem;">
+  <% if (hasPermission('perfiles', 'consultar') || hasPermission('usuarios', 'consultar')) { %>
+    <a href="/administracion/perfiles" style="font-size: 0.85rem; color: var(--muted); text-decoration: none; white-space: nowrap;">🛡️ Administración</a>
+  <% } %>
+  <span style="font-size: 0.85rem; color: var(--muted); white-space: nowrap;"><%= currentUser?.full_name || currentUser?.username %></span>
+  <form method="post" action="/logout" style="margin: 0;">
+    <button class="btn secondary" type="submit" style="padding: 0.35rem 0.7rem; font-size: 0.82rem;">Salir</button>
+  </form>
+</div>

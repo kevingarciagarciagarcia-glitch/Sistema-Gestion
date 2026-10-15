@@ -1,0 +1,55 @@
+<%- include('../partials/header', { currentPage: 'movements' }) %>
+
+<h1>Movimientos de stock</h1>
+
+<div class="toolbar">
+  <div></div>
+  <a class="btn" href="/inventario/movimientos/new">+ Nuevo movimiento</a>
+</div>
+
+<div class="card">
+  <% if (movements.length === 0) { %>
+    <p class="empty">Todavía no hay movimientos registrados.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr><th>Fecha</th><th></th><th>Código</th><th>Elemento</th><th>Tipo</th><th>Cantidad</th><th>Bodega</th><th>Motivo</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% movements.forEach(m => { %>
+          <tr>
+            <td><%= m.created_at %></td>
+            <td><span class="muted"><%= m.item_type === 'product' ? 'Producto' : 'Suministro' %></span></td>
+            <td><%= m.item_code %></td>
+            <td><%= m.item_name %></td>
+            <td>
+              <span class="badge <%= m.type %>">
+                <%= m.type === 'in' ? 'Entrada' : m.type === 'out' ? 'Salida' : 'Traspaso' %>
+              </span>
+            </td>
+            <td>
+              <% if (m.input_unit_id && Number(m.input_unit_id) !== Number(m.item_unit_id)) { %>
+                <%= m.input_quantity %> <%= m.input_unit_name %> <span class="muted">(= <%= m.quantity %> <%= m.unit_name || '—' %>)</span>
+              <% } else { %>
+                <%= m.quantity %> <%= m.unit_name || '—' %>
+              <% } %>
+            </td>
+            <td>
+              <% if (m.type === 'traspaso') { %>
+                <%= m.from_warehouse_name || '—' %> → <%= m.to_warehouse_name || '—' %>
+              <% } else { %>
+                <%= m.warehouse_name || '—' %>
+              <% } %>
+            </td>
+            <td><%= m.reason || '—' %></td>
+            <td><a class="btn secondary" href="/inventario/movimientos/<%= m.id %>">Ver / Imprimir</a></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

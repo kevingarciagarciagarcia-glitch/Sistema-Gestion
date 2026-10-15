@@ -1,0 +1,51 @@
+<%- include('../partials/orders-header', { currentPage: 'sellers' }) %>
+
+<h1>Vendedores</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <h2>Nuevo vendedor</h2>
+  <form method="post" action="/pedidos/vendedores">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">Nombre</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+    </div>
+    <button class="btn" type="submit">Agregar vendedor</button>
+  </form>
+</div>
+
+<div class="card">
+  <% if (sellers.length === 0) { %>
+    <p class="empty">Todavía no hay vendedores.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr><th>Nombre</th><th>Órdenes</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% sellers.forEach(s => { %>
+          <tr>
+            <td><%= s.name %></td>
+            <td><%= s.order_count %></td>
+            <td class="actions-cell">
+              <% if (s.order_count > 0) { %>
+                <span class="muted" title="No se puede eliminar: tiene órdenes registradas">En uso</span>
+              <% } else { %>
+                <form class="inline" method="post" action="/pedidos/vendedores/<%= s.id %>/delete" onsubmit="return confirm('¿Eliminar este vendedor?');">
+                  <button class="btn danger" type="submit">Eliminar</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

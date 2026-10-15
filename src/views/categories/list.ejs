@@ -1,0 +1,85 @@
+<%- include('../partials/header', { currentPage: 'categories' }) %>
+
+<h1>Categorías</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <h2>Nueva categoría</h2>
+  <form method="post" action="/inventario/categorias">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">Nombre</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+      <div class="field">
+        <label for="description">Descripción</label>
+        <input type="text" id="description" name="description">
+      </div>
+      <div class="field">
+        <label for="parent_id">Categoría padre</label>
+        <select id="parent_id" name="parent_id">
+          <option value="">Ninguna (categoría principal)</option>
+          <% topLevel.forEach(c => { %>
+            <option value="<%= c.id %>"><%= c.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+    <button class="btn" type="submit">Agregar categoría</button>
+  </form>
+</div>
+
+<div class="card">
+  <% if (tree.length === 0) { %>
+    <p class="empty">Todavía no hay categorías.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr><th>Nombre</th><th>Descripción</th><th>Productos</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% tree.forEach(c => {
+          const subTotal = c.subcategories.reduce((sum, s) => sum + s.product_count, 0);
+          const inUse = c.product_count + subTotal > 0;
+        %>
+          <tr>
+            <td><strong><%= c.name %></strong> <% if (c.is_fixed) { %><span class="badge" style="background:#e0e7ff;color:#4338ca;">Fija</span><% } %></td>
+            <td><%= c.description || '—' %></td>
+            <td><%= c.product_count %></td>
+            <td class="actions-cell">
+              <% if (c.is_fixed) { %>
+              <% } else if (inUse) { %>
+                <span class="muted" title="No se puede eliminar: en uso por productos">En uso</span>
+              <% } else { %>
+                <form class="inline" method="post" action="/inventario/categorias/<%= c.id %>/delete" onsubmit="return confirm('¿Eliminar esta categoría y todas sus subcategorías?');">
+                  <button class="btn danger" type="submit">Eliminar</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+          <% c.subcategories.forEach(sub => { %>
+            <tr>
+              <td style="padding-left: 1.75rem;">↳ <%= sub.name %></td>
+              <td><%= sub.description || '—' %></td>
+              <td><%= sub.product_count %></td>
+              <td class="actions-cell">
+                <% if (sub.product_count > 0) { %>
+                  <span class="muted" title="No se puede eliminar: en uso por productos">En uso</span>
+                <% } else { %>
+                  <form class="inline" method="post" action="/inventario/categorias/<%= sub.id %>/delete" onsubmit="return confirm('¿Eliminar esta subcategoría?');">
+                    <button class="btn danger" type="submit">Eliminar</button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

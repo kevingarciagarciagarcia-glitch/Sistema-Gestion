@@ -1,0 +1,54 @@
+<%- include('../partials/admin-header', { currentPage: 'users' }) %>
+
+<h1>Usuarios</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="toolbar">
+  <div></div>
+  <% if (hasPermission('usuarios', 'agregar')) { %>
+    <a class="btn" href="/administracion/usuarios/new">+ Nuevo usuario</a>
+  <% } %>
+</div>
+
+<div class="card">
+  <% if (users.length === 0) { %>
+    <p class="empty">Todavía no hay usuarios.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr><th>Usuario</th><th>Nombre</th><th>Perfil</th><th>Estado</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% users.forEach(u => { %>
+          <tr>
+            <td><%= u.username %></td>
+            <td><%= u.full_name || '—' %></td>
+            <td><%= u.profile_name || '—' %></td>
+            <td>
+              <% if (u.is_active) { %>
+                <span class="badge in">Activo</span>
+              <% } else { %>
+                <span class="badge out">Inactivo</span>
+              <% } %>
+            </td>
+            <td class="actions-cell">
+              <% if (hasPermission('usuarios', 'modificar')) { %>
+                <a class="btn secondary" href="/administracion/usuarios/<%= u.id %>/edit">Editar</a>
+              <% } %>
+              <% if (hasPermission('usuarios', 'eliminar') && u.id !== currentUser.id) { %>
+                <form class="inline" method="post" action="/administracion/usuarios/<%= u.id %>/delete" onsubmit="return confirm('¿Eliminar este usuario?');">
+                  <button class="btn danger" type="submit">Eliminar</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

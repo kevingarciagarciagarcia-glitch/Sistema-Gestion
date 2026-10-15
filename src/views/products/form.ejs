@@ -1,0 +1,243 @@
+<%- include('../partials/header', { currentPage: 'products' }) %>
+
+<h1><%= product ? 'Editar producto' : 'Nuevo producto' %></h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <form method="post" action="<%= product ? `/inventario/productos/${product.id}` : '/inventario/productos' %>">
+    <div class="form-grid">
+      <div class="field">
+        <label for="sku">SKU</label>
+        <input type="text" id="sku" name="sku" value="<%= product?.sku || '' %>" required>
+      </div>
+      <div class="field">
+        <label for="name">Nombre</label>
+        <input type="text" id="name" name="name" value="<%= product?.name || '' %>" required>
+      </div>
+      <div class="field">
+        <label for="category_id">Categoría</label>
+        <select id="category_id" name="category_id">
+          <option value="">Sin categoría</option>
+          <% categoryOptions.forEach(c => { %>
+            <option value="<%= c.id %>" <%= (product?.category_id ?? preselectCategoryId) === c.id ? 'selected' : '' %>><%= c.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="unit_id">Unidad de medida</label>
+        <select id="unit_id" name="unit_id" required>
+          <option value="">Selecciona una unidad</option>
+          <% units.forEach(u => { %>
+            <option value="<%= u.id %>" <%= product?.unit_id === u.id ? 'selected' : '' %>><%= u.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="quantity">Cantidad en stock</label>
+        <input type="number" id="quantity" name="quantity" min="0" step="1" value="<%= product?.quantity ?? 0 %>">
+      </div>
+      <div class="field">
+        <label for="min_stock">Stock mínimo</label>
+        <input type="number" id="min_stock" name="min_stock" min="0" step="1" value="<%= product?.min_stock ?? 0 %>">
+      </div>
+      <div class="field">
+        <label for="description">Descripción</label>
+        <input type="text" id="description" name="description" value="<%= product?.description || '' %>">
+      </div>
+    </div>
+
+    <h2 style="margin-top: 0.5rem;">Dimensiones</h2>
+    <div class="form-grid" style="margin-bottom: 1.5rem;">
+      <div class="field">
+        <label for="width">Ancho</label>
+        <input type="number" id="width" name="width" min="0" step="any" value="<%= product?.width ?? '' %>">
+      </div>
+      <div class="field">
+        <label for="length">Largo</label>
+        <input type="number" id="length" name="length" min="0" step="any" value="<%= product?.length ?? '' %>">
+      </div>
+      <div class="field">
+        <label for="thickness">Espesor</label>
+        <input type="number" id="thickness" name="thickness" min="0" step="any" value="<%= product?.thickness ?? '' %>">
+      </div>
+      <div class="field">
+        <label for="color">Color</label>
+        <input type="text" id="color" name="color" value="<%= product?.color || '' %>">
+      </div>
+    </div>
+
+    <h2>Especificaciones</h2>
+    <div class="form-grid" style="margin-bottom: 1.5rem;">
+      <div class="field">
+        <label for="spec_code">Código</label>
+        <input type="text" id="spec_code" name="spec_code" value="<%= product?.spec_code || '' %>">
+      </div>
+      <div class="field">
+        <label for="spec_brand">Marca</label>
+        <input type="text" id="spec_brand" name="spec_brand" value="<%= product?.spec_brand || '' %>">
+      </div>
+      <div class="field">
+        <label for="spec_presentation">Presentación</label>
+        <input type="text" id="spec_presentation" name="spec_presentation" value="<%= product?.spec_presentation || '' %>">
+      </div>
+    </div>
+
+    <div class="field" style="margin-bottom: 1rem;">
+      <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+        <input type="checkbox" id="has_fuelle" name="has_fuelle" <%= product?.has_fuelle ? 'checked' : '' %> style="width: auto;">
+        Lleva fuelle
+      </label>
+    </div>
+
+    <div id="fuelle-fields" class="form-grid" style="margin-bottom: 1.5rem; display: none;">
+      <div class="field">
+        <label for="fuelle_type">Tipo de fuelle</label>
+        <select id="fuelle_type" name="fuelle_type">
+          <option value="">Selecciona...</option>
+          <option value="lateral" <%= product?.fuelle_type === 'lateral' ? 'selected' : '' %>>Fuelle Lateral</option>
+          <option value="fondo" <%= product?.fuelle_type === 'fondo' ? 'selected' : '' %>>Fuelle Fondo</option>
+          <option value="superior_fondo" <%= product?.fuelle_type === 'superior_fondo' ? 'selected' : '' %>>Fuelle Superior y Fondo</option>
+        </select>
+      </div>
+      <div class="field" id="fuelle-measure-1-field">
+        <label for="fuelle_measure_1" id="fuelle-measure-1-label">Medida</label>
+        <input type="number" id="fuelle_measure_1" name="fuelle_measure_1" min="0" step="any" value="<%= product?.fuelle_measure_1 ?? '' %>">
+      </div>
+      <div class="field" id="fuelle-measure-2-field">
+        <label for="fuelle_measure_2">Medida fondo</label>
+        <input type="number" id="fuelle_measure_2" name="fuelle_measure_2" min="0" step="any" value="<%= product?.fuelle_measure_2 ?? '' %>">
+      </div>
+    </div>
+
+    <h2>Impresión</h2>
+    <div class="field" style="margin-bottom: 1rem;">
+      <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+        <input type="checkbox" id="has_printing" name="has_printing" <%= product?.has_printing ? 'checked' : '' %> style="width: auto;">
+        Lleva impresión
+      </label>
+    </div>
+
+    <div id="printing-fields" class="form-grid" style="margin-bottom: 1.5rem; display: none;">
+      <div class="field">
+        <label for="printing_type">Tipo de impresión</label>
+        <select id="printing_type" name="printing_type">
+          <option value="">Selecciona...</option>
+          <option value="serigrafia" <%= product?.printing_type === 'serigrafia' ? 'selected' : '' %>>Serigrafía</option>
+          <option value="flexografia" <%= product?.printing_type === 'flexografia' ? 'selected' : '' %>>Flexografía</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="printing_side">Lado de impresión</label>
+        <select id="printing_side" name="printing_side">
+          <option value="">Selecciona...</option>
+          <option value="anverso" <%= product?.printing_side === 'anverso' ? 'selected' : '' %>>Anverso</option>
+          <option value="reverso" <%= product?.printing_side === 'reverso' ? 'selected' : '' %>>Reverso</option>
+          <option value="anverso_reverso" <%= product?.printing_side === 'anverso_reverso' ? 'selected' : '' %>>Anverso y reverso</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="printing_reference">Referencia de impresión</label>
+        <input type="text" id="printing_reference" name="printing_reference" placeholder="Ej: Supermaxi" value="<%= product?.printing_reference || '' %>">
+      </div>
+      <div class="field">
+        <label for="printing_colors">Cantidad de colores</label>
+        <input type="number" id="printing_colors" name="printing_colors" min="1" step="1" value="<%= product?.printing_colors ?? '' %>">
+      </div>
+    </div>
+
+    <h2 style="margin-top: 0.5rem;">⇄ Conversiones</h2>
+    <p class="muted" style="margin: -0.25rem 0 1rem;">
+      Equivalencias de este producto con otras unidades (máximo 4). Ej: 1 Millar equivalen a 1000 Unidad.
+    </p>
+
+    <% for (let i = 1; i <= 4; i++) { const c = conversions[i - 1]; %>
+      <div class="conversion-row">
+        <span class="conversion-index"><%= i %>:</span>
+        <input type="number" name="conv_base_<%= i %>" min="0.0001" step="any" placeholder="1" value="<%= c?.base_quantity ?? '' %>">
+        <span class="unit-suffix" data-current-unit-label></span>
+        <span class="conversion-label">equivalen a:</span>
+        <input type="number" name="conv_qty_<%= i %>" min="0.0001" step="any" placeholder="1000" value="<%= c?.target_quantity ?? '' %>">
+        <select name="conv_unit_<%= i %>">
+          <option value="">Unidad...</option>
+          <% units.forEach(u => { %>
+            <option value="<%= u.id %>" <%= c?.target_unit_id === u.id ? 'selected' : '' %>><%= u.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn secondary" href="<%= cancelUrl %>">Cancelar</a>
+  </form>
+</div>
+
+<script>
+  const baseUnitSelect = document.getElementById('unit_id');
+  const unitSuffixEls = document.querySelectorAll('[data-current-unit-label]');
+
+  function updateUnitSuffixes() {
+    const text = baseUnitSelect.options[baseUnitSelect.selectedIndex]?.text || 'unidad';
+    unitSuffixEls.forEach((el) => { el.textContent = text; });
+  }
+
+  baseUnitSelect.addEventListener('change', updateUnitSuffixes);
+  updateUnitSuffixes();
+
+  const printingCheckbox = document.getElementById('has_printing');
+  const printingFields = document.getElementById('printing-fields');
+  const printingType = document.getElementById('printing_type');
+  const printingSide = document.getElementById('printing_side');
+
+  function togglePrintingFields() {
+    const show = printingCheckbox.checked;
+    printingFields.style.display = show ? 'grid' : 'none';
+    printingType.required = show;
+    printingSide.required = show;
+  }
+
+  printingCheckbox.addEventListener('change', togglePrintingFields);
+  togglePrintingFields();
+
+  const fuelleCheckbox = document.getElementById('has_fuelle');
+  const fuelleFields = document.getElementById('fuelle-fields');
+  const fuelleType = document.getElementById('fuelle_type');
+  const fuelleMeasure1Field = document.getElementById('fuelle-measure-1-field');
+  const fuelleMeasure1Label = document.getElementById('fuelle-measure-1-label');
+  const fuelleMeasure2Field = document.getElementById('fuelle-measure-2-field');
+
+  function updateFuelleMeasureFields() {
+    const type = fuelleType.value;
+    if (type === 'superior_fondo') {
+      fuelleMeasure1Label.textContent = 'Medida superior';
+      fuelleMeasure1Field.style.display = '';
+      fuelleMeasure2Field.style.display = '';
+    } else if (type === 'lateral') {
+      fuelleMeasure1Label.textContent = 'Medida lateral';
+      fuelleMeasure1Field.style.display = '';
+      fuelleMeasure2Field.style.display = 'none';
+    } else if (type === 'fondo') {
+      fuelleMeasure1Label.textContent = 'Medida fondo';
+      fuelleMeasure1Field.style.display = '';
+      fuelleMeasure2Field.style.display = 'none';
+    } else {
+      fuelleMeasure1Field.style.display = 'none';
+      fuelleMeasure2Field.style.display = 'none';
+    }
+  }
+
+  function toggleFuelleFields() {
+    const show = fuelleCheckbox.checked;
+    fuelleFields.style.display = show ? 'grid' : 'none';
+    fuelleType.required = show;
+    updateFuelleMeasureFields();
+  }
+
+  fuelleCheckbox.addEventListener('change', toggleFuelleFields);
+  fuelleType.addEventListener('change', updateFuelleMeasureFields);
+  toggleFuelleFields();
+</script>
+
+<%- include('../partials/footer') %>

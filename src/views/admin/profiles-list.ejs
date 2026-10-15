@@ -1,0 +1,47 @@
+<%- include('../partials/admin-header', { currentPage: 'profiles' }) %>
+
+<h1>Perfiles</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="toolbar">
+  <div></div>
+  <% if (hasPermission('perfiles', 'agregar')) { %>
+    <a class="btn" href="/administracion/perfiles/new">+ Nuevo perfil</a>
+  <% } %>
+</div>
+
+<div class="card">
+  <% if (profiles.length === 0) { %>
+    <p class="empty">Todavía no hay perfiles.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr><th>Nombre</th><th>Descripción</th><th>Usuarios</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% profiles.forEach(p => { %>
+          <tr>
+            <td><strong><%= p.name %></strong> <% if (p.is_fixed) { %><span class="badge" style="background:#e0e7ff;color:#4338ca;">Fijo</span><% } %></td>
+            <td><%= p.description || '—' %></td>
+            <td><%= p.user_count %></td>
+            <td class="actions-cell">
+              <% if (hasPermission('perfiles', 'modificar') && !p.is_fixed) { %>
+                <a class="btn secondary" href="/administracion/perfiles/<%= p.id %>/edit">Editar</a>
+              <% } %>
+              <% if (hasPermission('perfiles', 'eliminar') && !p.is_fixed && p.user_count === 0) { %>
+                <form class="inline" method="post" action="/administracion/perfiles/<%= p.id %>/delete" onsubmit="return confirm('¿Eliminar este perfil?');">
+                  <button class="btn danger" type="submit">Eliminar</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

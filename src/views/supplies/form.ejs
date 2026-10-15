@@ -1,0 +1,69 @@
+<%- include('../partials/header', { currentPage: 'suministros' }) %>
+
+<h1><%= supply ? 'Editar suministro' : 'Nuevo suministro' %></h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <form method="post" action="<%= supply ? `/inventario/suministros/${supply.id}` : '/inventario/suministros' %>">
+    <div class="form-grid">
+      <div class="field">
+        <label for="code">Código</label>
+        <input type="text" id="code" name="code" value="<%= supply?.code || '' %>" required>
+      </div>
+      <div class="field">
+        <label for="description">Descripción del Artículo</label>
+        <input type="text" id="description" name="description" value="<%= supply?.description || '' %>" required>
+      </div>
+      <div class="field">
+        <label for="category_id">Categoría</label>
+        <select id="category_id" name="category_id">
+          <option value="">Sin categoría</option>
+          <% categoryOptions.forEach(c => { %>
+            <option value="<%= c.id %>" <%= supply?.category_id === c.id ? 'selected' : '' %>><%= c.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="unit_id">Unidad de medida</label>
+        <select id="unit_id" name="unit_id">
+          <option value="">Selecciona una unidad</option>
+          <% units.forEach(u => { %>
+            <option value="<%= u.id %>" <%= supply?.unit_id === u.id ? 'selected' : '' %>><%= u.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="min_stock">Stock mínimo</label>
+        <input type="number" id="min_stock" name="min_stock" min="0" step="any" value="<%= supply?.min_stock ?? 0 %>">
+      </div>
+      <div class="field">
+        <label for="quantity">Stock actual</label>
+        <input type="number" id="quantity" name="quantity" min="0" step="any" value="<%= supply?.quantity ?? 0 %>">
+      </div>
+      <div class="field">
+        <label for="associated_machine">Máquina asociada</label>
+        <input type="text" id="associated_machine" name="associated_machine" value="<%= supply?.associated_machine || '' %>">
+      </div>
+      <div class="field">
+        <label for="condition">Condición</label>
+        <input type="text" id="condition" name="condition" placeholder="Ej: Nuevo, Usado, Reacondicionado..." value="<%= supply?.condition || '' %>">
+      </div>
+      <div class="field">
+        <label for="supplier">Proveedor</label>
+        <input type="text" id="supplier" name="supplier" value="<%= supply?.supplier || '' %>">
+      </div>
+      <div class="field">
+        <label for="supplier_contact">Contacto de proveedor</label>
+        <input type="text" id="supplier_contact" name="supplier_contact" placeholder="Teléfono o correo" value="<%= supply?.supplier_contact || '' %>">
+      </div>
+    </div>
+
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn secondary" href="/inventario/suministros">Cancelar</a>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

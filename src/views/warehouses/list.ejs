@@ -1,0 +1,56 @@
+<%- include('../partials/header', { currentPage: 'warehouses' }) %>
+
+<h1>Bodegas</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <h2>Nueva bodega</h2>
+  <form method="post" action="/inventario/bodegas">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">Nombre</label>
+        <input type="text" id="name" name="name" placeholder="Ej: Bodega Central, Bodega Norte..." required>
+      </div>
+      <div class="field">
+        <label for="description">Descripción</label>
+        <input type="text" id="description" name="description" placeholder="Ubicación o notas (opcional)">
+      </div>
+    </div>
+    <button class="btn" type="submit">Agregar bodega</button>
+  </form>
+</div>
+
+<div class="card">
+  <% if (warehouses.length === 0) { %>
+    <p class="empty">Todavía no hay bodegas.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr><th>Nombre</th><th>Descripción</th><th>Movimientos</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% warehouses.forEach(w => { %>
+          <tr>
+            <td><%= w.name %></td>
+            <td><%= w.description || '—' %></td>
+            <td><%= w.movement_count %></td>
+            <td class="actions-cell">
+              <% if (w.movement_count > 0) { %>
+                <span class="muted" title="No se puede eliminar: tiene movimientos registrados">En uso</span>
+              <% } else { %>
+                <form class="inline" method="post" action="/inventario/bodegas/<%= w.id %>/delete" onsubmit="return confirm('¿Eliminar esta bodega?');">
+                  <button class="btn danger" type="submit">Eliminar</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

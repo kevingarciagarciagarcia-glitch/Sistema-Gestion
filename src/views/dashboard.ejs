@@ -1,0 +1,69 @@
+<%- include('partials/header', { currentPage: 'dashboard' }) %>
+
+<h1>Dashboard</h1>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="label">Productos</div>
+    <div class="value"><%= totalProducts %></div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Unidades en stock</div>
+    <div class="value"><%= totalUnits %></div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Bajo stock</div>
+    <div class="value"><%= lowStock.length %></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Productos con bajo stock</h2>
+  <% if (lowStock.length === 0) { %>
+    <p class="empty">No hay productos por debajo del stock mínimo.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr><th>SKU</th><th>Producto</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Unidad</th></tr>
+      </thead>
+      <tbody>
+        <% lowStock.forEach(p => { %>
+          <tr>
+            <td><%= p.sku %></td>
+            <td><%= p.name %></td>
+            <td><%= p.category_name || '—' %></td>
+            <td><span class="badge low"><%= p.quantity %></span></td>
+            <td><%= p.min_stock %></td>
+            <td><%= p.unit_name || '—' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2>Últimos movimientos</h2>
+  <% if (recentMovements.length === 0) { %>
+    <p class="empty">Todavía no hay movimientos registrados.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th></tr>
+      </thead>
+      <tbody>
+        <% recentMovements.forEach(m => { %>
+          <tr>
+            <td><%= m.created_at %></td>
+            <td><%= m.product_name %></td>
+            <td><span class="badge <%= m.type %>"><%= m.type === 'in' ? 'Entrada' : 'Salida' %></span></td>
+            <td><%= m.quantity %></td>
+            <td><%= m.reason || '—' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

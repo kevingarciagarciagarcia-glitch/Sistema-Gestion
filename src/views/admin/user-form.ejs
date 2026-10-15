@@ -1,0 +1,47 @@
+<%- include('../partials/admin-header', { currentPage: 'users' }) %>
+
+<h1><%= user ? 'Editar usuario' : 'Nuevo usuario' %></h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <form method="post" action="<%= user ? `/administracion/usuarios/${user.id}` : '/administracion/usuarios' %>">
+    <div class="form-grid">
+      <div class="field">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" name="username" value="<%= user?.username || '' %>" required>
+      </div>
+      <div class="field">
+        <label for="full_name">Nombre completo</label>
+        <input type="text" id="full_name" name="full_name" value="<%= user?.full_name || '' %>">
+      </div>
+      <div class="field">
+        <label for="password">Contraseña<%= user ? ' (dejar en blanco para no cambiar)' : '' %></label>
+        <input type="password" id="password" name="password" <%= user ? '' : 'required' %>>
+      </div>
+      <div class="field">
+        <label for="profile_id">Perfil</label>
+        <select id="profile_id" name="profile_id">
+          <option value="">Sin perfil (sin acceso)</option>
+          <% profiles.forEach(p => { %>
+            <option value="<%= p.id %>" <%= user?.profile_id === p.id ? 'selected' : '' %>><%= p.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <div class="field" style="margin-bottom: 1rem;">
+      <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+        <input type="checkbox" name="is_active" <%= !user || user.is_active ? 'checked' : '' %> style="width: auto;">
+        Usuario activo
+      </label>
+    </div>
+
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn secondary" href="/administracion/usuarios">Cancelar</a>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

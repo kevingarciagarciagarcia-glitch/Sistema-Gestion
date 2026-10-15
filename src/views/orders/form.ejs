@@ -1,0 +1,175 @@
+<%- include('../partials/orders-header', { currentPage: 'orders' }) %>
+
+<h1><%= order ? `Editar orden #${order.id}` : 'Nueva orden de pedido' %></h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <form method="post" action="<%= order ? `/pedidos/${order.id}` : '/pedidos' %>" id="order-form">
+    <h2 style="margin-top: 0;">Datos de la orden</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="client">Cliente</label>
+        <input type="text" id="client" name="client" value="<%= order?.client || '' %>" required>
+      </div>
+      <div class="field">
+        <label for="proforma_number">N° Proforma</label>
+        <input type="text" id="proforma_number" name="proforma_number" value="<%= order?.proforma_number || '' %>">
+      </div>
+      <div class="field">
+        <label for="order_date">Fecha de Pedido</label>
+        <input type="date" id="order_date" name="order_date" value="<%= order?.order_date || '' %>">
+      </div>
+      <div class="field">
+        <label for="delivery_date">Fecha de Entrega</label>
+        <input type="date" id="delivery_date" name="delivery_date" value="<%= order?.delivery_date || '' %>">
+      </div>
+      <div class="field">
+        <label for="city">Ciudad</label>
+        <input type="text" id="city" name="city" value="<%= order?.city || '' %>">
+      </div>
+      <div class="field">
+        <label for="branch">Sucursal</label>
+        <input type="text" id="branch" name="branch" value="<%= order?.branch || '' %>">
+      </div>
+      <div class="field">
+        <label for="seller_id">Vendedor</label>
+        <select id="seller_id" name="seller_id" required>
+          <option value="">Selecciona un vendedor</option>
+          <% sellers.forEach(s => { %>
+            <option value="<%= s.id %>" <%= order?.seller_id === s.id ? 'selected' : '' %>><%= s.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <h2>Productos solicitados</h2>
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>N°</th><th>Tipo</th><th>Producto</th><th>Color</th><th>A</th><th>L</th><th>E</th>
+          <th>Cantidad</th><th>Total Kg</th><th>Precio U</th><th>Precio Total</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="items-body">
+        <% const initialItems = (order?.items?.length ? order.items : [null, null, null]); %>
+        <% initialItems.forEach((it, idx) => { %>
+          <tr class="item-row">
+            <td class="item-number"><%= idx + 1 %></td>
+            <td>
+              <select name="items[<%= idx %>][type]">
+                <option value="">Selecciona...</option>
+                <option value="rollo" <%= it?.type === 'rollo' ? 'selected' : '' %>>Rollo</option>
+                <option value="funda" <%= it?.type === 'funda' ? 'selected' : '' %>>Funda</option>
+                <option value="lamina" <%= it?.type === 'lamina' ? 'selected' : '' %>>Lámina</option>
+              </select>
+            </td>
+            <td><input type="text" name="items[<%= idx %>][product]" value="<%= it?.product || '' %>" style="width: 140px;"></td>
+            <td><input type="text" name="items[<%= idx %>][color]" value="<%= it?.color || '' %>" style="width: 80px;"></td>
+            <td><input type="number" step="any" name="items[<%= idx %>][width]" value="<%= it?.width ?? '' %>" style="width: 65px;"></td>
+            <td><input type="number" step="any" name="items[<%= idx %>][length]" value="<%= it?.length ?? '' %>" style="width: 65px;"></td>
+            <td><input type="number" step="any" name="items[<%= idx %>][thickness]" value="<%= it?.thickness ?? '' %>" style="width: 65px;"></td>
+            <td><input type="number" step="any" class="qty-input" name="items[<%= idx %>][quantity]" value="<%= it?.quantity ?? '' %>" style="width: 80px;"></td>
+            <td><input type="number" step="any" name="items[<%= idx %>][total_kg]" value="<%= it?.total_kg ?? '' %>" style="width: 80px;"></td>
+            <td><input type="number" step="any" class="price-input" name="items[<%= idx %>][unit_price]" value="<%= it?.unit_price ?? '' %>" style="width: 90px;"></td>
+            <td class="line-total">$<%= (it?.line_total || 0).toFixed(2) %></td>
+            <td><button type="button" class="btn danger remove-row" style="padding: 0.3rem 0.55rem;">✕</button></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+    <button type="button" id="add-row-btn" class="btn secondary" style="margin-top: 0.75rem;">+ Agregar línea</button>
+
+    <div style="text-align: right; margin: 1rem 0; font-size: 1.1rem;">
+      Subtotal: <strong id="order-subtotal">$0.00</strong>
+    </div>
+
+    <button class="btn" type="submit">Guardar orden</button>
+    <a class="btn secondary" href="/pedidos">Cancelar</a>
+  </form>
+</div>
+
+<script>
+  let rowIndex = <%= initialItems.length %>;
+  const itemsBody = document.getElementById('items-body');
+  const addRowBtn = document.getElementById('add-row-btn');
+  const subtotalEl = document.getElementById('order-subtotal');
+
+  function rowTemplate(index) {
+    return `
+      <tr class="item-row">
+        <td class="item-number"></td>
+        <td>
+          <select name="items[${index}][type]">
+            <option value="">Selecciona...</option>
+            <option value="rollo">Rollo</option>
+            <option value="funda">Funda</option>
+            <option value="lamina">Lámina</option>
+          </select>
+        </td>
+        <td><input type="text" name="items[${index}][product]" style="width: 140px;"></td>
+        <td><input type="text" name="items[${index}][color]" style="width: 80px;"></td>
+        <td><input type="number" step="any" name="items[${index}][width]" style="width: 65px;"></td>
+        <td><input type="number" step="any" name="items[${index}][length]" style="width: 65px;"></td>
+        <td><input type="number" step="any" name="items[${index}][thickness]" style="width: 65px;"></td>
+        <td><input type="number" step="any" class="qty-input" name="items[${index}][quantity]" style="width: 80px;"></td>
+        <td><input type="number" step="any" name="items[${index}][total_kg]" style="width: 80px;"></td>
+        <td><input type="number" step="any" class="price-input" name="items[${index}][unit_price]" style="width: 90px;"></td>
+        <td class="line-total">$0.00</td>
+        <td><button type="button" class="btn danger remove-row" style="padding: 0.3rem 0.55rem;">✕</button></td>
+      </tr>
+    `;
+  }
+
+  function renumberRows() {
+    document.querySelectorAll('#items-body .item-row').forEach((row, i) => {
+      row.querySelector('.item-number').textContent = i + 1;
+    });
+  }
+
+  function updateSubtotal() {
+    let sum = 0;
+    document.querySelectorAll('#items-body .item-row').forEach((row) => {
+      const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+      const price = parseFloat(row.querySelector('.price-input').value) || 0;
+      sum += qty * price;
+    });
+    subtotalEl.textContent = `$${sum.toFixed(2)}`;
+  }
+
+  function updateRowTotal(row) {
+    const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+    const price = parseFloat(row.querySelector('.price-input').value) || 0;
+    row.querySelector('.line-total').textContent = `$${(qty * price).toFixed(2)}`;
+    updateSubtotal();
+  }
+
+  function attachRowListeners(row) {
+    row.querySelector('.qty-input').addEventListener('input', () => updateRowTotal(row));
+    row.querySelector('.price-input').addEventListener('input', () => updateRowTotal(row));
+    row.querySelector('.remove-row').addEventListener('click', () => {
+      row.remove();
+      renumberRows();
+      updateSubtotal();
+    });
+  }
+
+  addRowBtn.addEventListener('click', () => {
+    const temp = document.createElement('tbody');
+    temp.innerHTML = rowTemplate(rowIndex++);
+    const newRow = temp.firstElementChild;
+    itemsBody.appendChild(newRow);
+    attachRowListeners(newRow);
+    renumberRows();
+  });
+
+  document.querySelectorAll('#items-body .item-row').forEach(attachRowListeners);
+  renumberRows();
+  updateSubtotal();
+</script>
+
+<%- include('../partials/footer') %>

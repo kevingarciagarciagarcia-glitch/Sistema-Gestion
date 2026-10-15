@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administración</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" style="text-decoration: none; color: inherit;">🛡️ Administración</a>
+    <nav class="main-nav">
+      <% if (hasPermission('perfiles', 'consultar')) { %>
+        <a href="/administracion/perfiles" class="<%= currentPage === 'profiles' ? 'active' : '' %>">Perfiles</a>
+      <% } %>
+      <% if (hasPermission('usuarios', 'consultar')) { %>
+        <a href="/administracion/usuarios" class="<%= currentPage === 'users' ? 'active' : '' %>">Usuarios</a>
+      <% } %>
+    </nav>
+    <%- include('userbox') %>
+  </header>
+  <main>

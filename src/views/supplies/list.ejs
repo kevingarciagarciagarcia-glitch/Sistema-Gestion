@@ -1,0 +1,68 @@
+<%- include('../partials/header', { currentPage: 'suministros' }) %>
+
+<h1>Suministros Varios</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<%- include('../partials/import-result') %>
+
+<div class="toolbar">
+  <form class="search-box" method="get" action="/inventario/suministros">
+    <input type="text" name="q" placeholder="Buscar por código o descripción..." value="<%= search %>">
+  </form>
+  <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+    <%- include('../partials/bulk-import-buttons', { templateUrl: '/inventario/suministros/plantilla', importUrl: '/inventario/suministros/importar' }) %>
+    <a class="btn" href="/inventario/suministros/new">+ Nuevo suministro</a>
+  </div>
+</div>
+
+<div class="card">
+  <% if (supplies.length === 0) { %>
+    <p class="empty">No se encontraron suministros.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Código</th><th>Descripción del Artículo</th><th>Categoría</th><th>Unidad de medida</th>
+          <th>Stock mínimo</th><th>Stock actual</th><th>Máquina asociada</th><th>Condición</th>
+          <th>Proveedor</th><th>Contacto de proveedor</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% supplies.forEach(s => { %>
+          <tr>
+            <td><%= s.code %></td>
+            <td><%= s.description %></td>
+            <td><%= s.category_name || '—' %></td>
+            <td><%= s.unit_name || '—' %></td>
+            <td><%= s.min_stock %></td>
+            <td>
+              <% if (s.quantity <= s.min_stock) { %>
+                <span class="badge low"><%= s.quantity %></span>
+              <% } else { %>
+                <%= s.quantity %>
+              <% } %>
+            </td>
+            <td><%= s.associated_machine || '—' %></td>
+            <td><%= s.condition || '—' %></td>
+            <td><%= s.supplier || '—' %></td>
+            <td><%= s.supplier_contact || '—' %></td>
+            <td class="actions-cell">
+              <a class="btn secondary" href="/inventario/suministros/<%= s.id %>/edit">Editar</a>
+              <form class="inline" method="post" action="/inventario/suministros/<%= s.id %>/delete" onsubmit="return confirm('¿Eliminar este suministro?');">
+                <button class="btn danger" type="submit">Eliminar</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

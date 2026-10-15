@@ -1,0 +1,98 @@
+<%- include('../partials/admin-header', { currentPage: 'profiles' }) %>
+
+<h1><%= profile ? 'Editar perfil' : 'Nuevo perfil' %></h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<% const ACTION_LABELS = { consultar: 'Consultar', agregar: 'Agregar', modificar: 'Modificar', eliminar: 'Eliminar' }; %>
+<% const readonly = !!profile?.is_fixed; %>
+
+<div class="card">
+  <form method="post" action="<%= profile ? `/administracion/perfiles/${profile.id}` : '/administracion/perfiles' %>">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">Nombre del perfil</label>
+        <input type="text" id="name" name="name" value="<%= profile?.name || '' %>" <%= readonly ? 'disabled' : '' %> required>
+      </div>
+      <div class="field">
+        <label for="description">Descripción</label>
+        <input type="text" id="description" name="description" value="<%= profile?.description || '' %>" <%= readonly ? 'disabled' : '' %>>
+      </div>
+    </div>
+
+    <% if (readonly) { %>
+      <div class="alert" style="background:#eef2ff;color:#4338ca;">Este perfil tiene acceso total a todo el sistema y no se puede modificar.</div>
+    <% } %>
+
+    <% MODULES.forEach(mod => {
+      const moduleActions = ['consultar', 'agregar', 'modificar', 'eliminar'].filter(a => mod.windows.some(w => w.actions.includes(a)));
+    %>
+      <div class="module-perm-card">
+        <button type="button" class="module-perm-toggle">
+          <span class="chevron">▾</span> <strong><%= mod.label %></strong>
+        </button>
+        <div class="module-perm-body">
+          <table>
+            <thead>
+              <tr>
+                <th>
+                  <label style="display:flex;align-items:center;gap:0.4rem;font-weight:600;">
+                    <input type="checkbox" class="select-all-module" <%= readonly ? 'disabled' : '' %> style="width:auto;">
+                    Seleccionar Todo
+                  </label>
+                </th>
+                <% moduleActions.forEach(action => { %>
+                  <th><%= ACTION_LABELS[action] %></th>
+                <% }) %>
+              </tr>
+            </thead>
+            <tbody>
+              <% mod.windows.forEach(win => { %>
+                <tr>
+                  <td><%= win.label %></td>
+                  <% moduleActions.forEach(action => { %>
+                    <td>
+                      <% if (win.actions.includes(action)) { %>
+                        <input type="checkbox" name="perm_<%= win.key %>_<%= action %>"
+                               <%= isGranted(win.key, action) ? 'checked' : '' %>
+                               <%= readonly ? 'disabled' : '' %> style="width:auto;">
+                      <% } %>
+                    </td>
+                  <% }) %>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% }) %>
+
+    <% if (!readonly) { %>
+      <button class="btn" type="submit">Guardar</button>
+    <% } %>
+    <a class="btn secondary" href="/administracion/perfiles">Volver</a>
+  </form>
+</div>
+
+<script>
+  document.querySelectorAll('.module-perm-toggle').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const body = btn.nextElementSibling;
+      const chevron = btn.querySelector('.chevron');
+      const collapsed = body.style.display === 'none';
+      body.style.display = collapsed ? '' : 'none';
+      chevron.textContent = collapsed ? '▾' : '▸';
+    });
+  });
+
+  document.querySelectorAll('.select-all-module').forEach((master) => {
+    master.addEventListener('change', () => {
+      const table = master.closest('.module-perm-card').querySelectorAll('tbody input[type=checkbox]');
+      table.forEach((cb) => { cb.checked = master.checked; });
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>
