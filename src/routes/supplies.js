@@ -34,7 +34,7 @@ router.get('/', requirePermission('suministros', 'consultar'), asyncHandler(asyn
     FROM supplies s
     LEFT JOIN categories c ON c.id = s.category_id
     LEFT JOIN units u ON u.id = s.unit_id
-    WHERE s.code LIKE ? OR s.description LIKE ?
+    WHERE s.code ILIKE ? OR s.description ILIKE ?
     ORDER BY s.description
   `).all(`%${search}%`, `%${search}%`);
 

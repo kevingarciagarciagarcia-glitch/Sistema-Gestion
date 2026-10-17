@@ -47,24 +47,38 @@ function listProductsByFixedCategory(categoryName, view) {
   return asyncHandler(async (req, res) => {
     const { top, categoryIds } = await getFixedCategoryTree(categoryName);
     const search = req.query.q?.trim() || '';
+    const measures = req.query.medidas?.trim() || '';
+    const color = req.query.color?.trim() || '';
 
     let products = [];
     if (categoryIds.length > 0) {
       const placeholders = categoryIds.map(() => '?').join(', ');
+      const conditions = [`p.category_id IN (${placeholders})`, '(p.name ILIKE ? OR p.sku ILIKE ?)'];
+      const params = [...categoryIds, `%${search}%`, `%${search}%`];
+
+      if (measures) {
+        conditions.push("(COALESCE(p.width::text, '') || 'x' || COALESCE(p.length::text, '')) ILIKE ?");
+        params.push(`%${measures.replace(/x/gi, 'x')}%`);
+      }
+      if (color) {
+        conditions.push('p.color ILIKE ?');
+        params.push(`%${color}%`);
+      }
+
       products = await db.prepare(`
         SELECT p.*, c.name AS category_name, u.name AS unit_name
         FROM products p
         LEFT JOIN categories c ON c.id = p.category_id
         LEFT JOIN units u ON u.id = p.unit_id
-        WHERE p.category_id IN (${placeholders}) AND (p.name LIKE ? OR p.sku LIKE ?)
+        WHERE ${conditions.join(' AND ')}
         ORDER BY p.name
-      `).all(...categoryIds, `%${search}%`, `%${search}%`);
+      `).all(...params);
     }
 
     const importResult = req.session.importResult || null;
     delete req.session.importResult;
 
-    res.render(view, { products, search, topCategoryId: top?.id || '', importResult });
+    res.render(view, { products, search, measures, color, topCategoryId: top?.id || '', importResult });
   });
 }
 
@@ -237,7 +251,7 @@ router.get('/', requireProductPermission('consultar'), asyncHandler(async (req, 
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN categories parent ON parent.id = c.parent_id
     LEFT JOIN units u ON u.id = p.unit_id
-    WHERE p.name LIKE ? OR p.sku LIKE ?
+    WHERE p.name ILIKE ? OR p.sku ILIKE ?
     ORDER BY p.name
   `).all(`%${search}%`, `%${search}%`);
 

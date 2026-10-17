@@ -84,7 +84,7 @@ router.get('/', requirePermission('ordenes', 'consultar'), asyncHandler(async (r
     FROM sales_orders o
     LEFT JOIN sellers s ON s.id = o.seller_id
     LEFT JOIN sales_order_items i ON i.order_id = o.id
-    WHERE o.client LIKE ? OR o.proforma_number LIKE ?
+    WHERE o.client ILIKE ? OR o.proforma_number ILIKE ?
     GROUP BY o.id, s.name
     ORDER BY o.id DESC
   `).all(`%${search}%`, `%${search}%`);

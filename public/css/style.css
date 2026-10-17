@@ -256,6 +256,12 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
+.search-box {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .search-box input {
   min-width: 240px;
 }
