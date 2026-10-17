@@ -5,39 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Inventario</title>
   <link rel="stylesheet" href="/css/style.css">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('sidebarHidden');
+        var hidden = stored === null ? window.matchMedia('(max-width: 860px)').matches : stored === '1';
+        if (hidden) document.documentElement.classList.add('sidebar-hidden');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/" style="text-decoration: none; color: inherit;">📦 Inventario</a>
-    <nav class="main-nav">
-      <% if (hasPermission('dashboard', 'consultar')) { %>
-        <a href="/inventario" class="<%= currentPage === 'dashboard' ? 'active' : '' %>">Dashboard</a>
-      <% } %>
-      <% if (hasPermission('materia_prima', 'consultar')) { %>
-        <a href="/inventario/productos/materia-prima" class="<%= currentPage === 'materia_prima' ? 'active' : '' %>">Materia Prima</a>
-      <% } %>
-      <% if (hasPermission('produccion', 'consultar')) { %>
-        <a href="/inventario/productos/produccion" class="<%= currentPage === 'produccion' ? 'active' : '' %>">Producción</a>
-      <% } %>
-      <% if (hasPermission('terminado', 'consultar')) { %>
-        <a href="/inventario/productos/terminado" class="<%= currentPage === 'terminado' ? 'active' : '' %>">Prod. Terminado</a>
-      <% } %>
-      <% if (hasPermission('suministros', 'consultar')) { %>
-        <a href="/inventario/suministros" class="<%= currentPage === 'suministros' ? 'active' : '' %>">Suministros Varios</a>
-      <% } %>
-      <% if (hasPermission('categorias', 'consultar')) { %>
-        <a href="/inventario/categorias" class="<%= currentPage === 'categories' ? 'active' : '' %>">Categorías</a>
-      <% } %>
-      <% if (hasPermission('unidades', 'consultar')) { %>
-        <a href="/inventario/unidades" class="<%= currentPage === 'units' ? 'active' : '' %>">Unidades</a>
-      <% } %>
-      <% if (hasPermission('bodegas', 'consultar')) { %>
-        <a href="/inventario/bodegas" class="<%= currentPage === 'warehouses' ? 'active' : '' %>">Bodegas</a>
-      <% } %>
-      <% if (hasPermission('movimientos', 'consultar')) { %>
-        <a href="/inventario/movimientos" class="<%= currentPage === 'movements' ? 'active' : '' %>">Movimientos</a>
-      <% } %>
-    </nav>
-    <%- include('userbox') %>
-  </header>
-  <main>
+  <button type="button" class="sidebar-open-btn" id="sidebarOpenBtn" aria-label="Mostrar menú">☰</button>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="/">📦 Inventario</a>
+        <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Ocultar menú">✕</button>
+      </div>
+      <nav class="main-nav">
+        <% if (hasPermission('dashboard', 'consultar')) { %>
+          <a href="/inventario" class="<%= currentPage === 'dashboard' ? 'active' : '' %>">Dashboard</a>
+        <% } %>
+        <% if (hasPermission('materia_prima', 'consultar')) { %>
+          <a href="/inventario/productos/materia-prima" class="<%= currentPage === 'materia_prima' ? 'active' : '' %>">Materia Prima</a>
+        <% } %>
+        <% if (hasPermission('produccion', 'consultar')) { %>
+          <a href="/inventario/productos/produccion" class="<%= currentPage === 'produccion' ? 'active' : '' %>">Producción</a>
+        <% } %>
+        <% if (hasPermission('terminado', 'consultar')) { %>
+          <a href="/inventario/productos/terminado" class="<%= currentPage === 'terminado' ? 'active' : '' %>">Prod. Terminado</a>
+        <% } %>
+        <% if (hasPermission('suministros', 'consultar')) { %>
+          <a href="/inventario/suministros" class="<%= currentPage === 'suministros' ? 'active' : '' %>">Suministros Varios</a>
+        <% } %>
+        <% if (hasPermission('categorias', 'consultar')) { %>
+          <a href="/inventario/categorias" class="<%= currentPage === 'categories' ? 'active' : '' %>">Categorías</a>
+        <% } %>
+        <% if (hasPermission('unidades', 'consultar')) { %>
+          <a href="/inventario/unidades" class="<%= currentPage === 'units' ? 'active' : '' %>">Unidades</a>
+        <% } %>
+        <% if (hasPermission('bodegas', 'consultar')) { %>
+          <a href="/inventario/bodegas" class="<%= currentPage === 'warehouses' ? 'active' : '' %>">Bodegas</a>
+        <% } %>
+        <% if (hasPermission('movimientos', 'consultar')) { %>
+          <a href="/inventario/movimientos" class="<%= currentPage === 'movements' ? 'active' : '' %>">Movimientos</a>
+        <% } %>
+      </nav>
+      <%- include('userbox') %>
+    </aside>
+    <div class="content-area">
+      <main>

@@ -5,18 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Administración</title>
   <link rel="stylesheet" href="/css/style.css">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('sidebarHidden');
+        var hidden = stored === null ? window.matchMedia('(max-width: 860px)').matches : stored === '1';
+        if (hidden) document.documentElement.classList.add('sidebar-hidden');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/" style="text-decoration: none; color: inherit;">🛡️ Administración</a>
-    <nav class="main-nav">
-      <% if (hasPermission('perfiles', 'consultar')) { %>
-        <a href="/administracion/perfiles" class="<%= currentPage === 'profiles' ? 'active' : '' %>">Perfiles</a>
-      <% } %>
-      <% if (hasPermission('usuarios', 'consultar')) { %>
-        <a href="/administracion/usuarios" class="<%= currentPage === 'users' ? 'active' : '' %>">Usuarios</a>
-      <% } %>
-    </nav>
-    <%- include('userbox') %>
-  </header>
-  <main>
+  <button type="button" class="sidebar-open-btn" id="sidebarOpenBtn" aria-label="Mostrar menú">☰</button>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="/">🛡️ Administración</a>
+        <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Ocultar menú">✕</button>
+      </div>
+      <nav class="main-nav">
+        <% if (hasPermission('perfiles', 'consultar')) { %>
+          <a href="/administracion/perfiles" class="<%= currentPage === 'profiles' ? 'active' : '' %>">Perfiles</a>
+        <% } %>
+        <% if (hasPermission('usuarios', 'consultar')) { %>
+          <a href="/administracion/usuarios" class="<%= currentPage === 'users' ? 'active' : '' %>">Usuarios</a>
+        <% } %>
+      </nav>
+      <%- include('userbox') %>
+    </aside>
+    <div class="content-area">
+      <main>
