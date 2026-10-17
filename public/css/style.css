@@ -384,6 +384,33 @@ input:focus, select:focus, textarea:focus {
   min-width: 240px;
 }
 
+.search-box .search-main {
+  min-width: 180px;
+}
+
+.search-box .search-extra {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-box .search-filter {
+  width: 130px;
+  min-width: 0;
+}
+
+@media (min-width: 641px) {
+  .search-box .search-main {
+    width: 300px;
+  }
+}
+
+@media (max-width: 640px) {
+  .search-box .search-extra {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+
 .actions-cell {
   display: flex;
   gap: 0.4rem;

@@ -10,10 +10,12 @@
 
 <div class="toolbar">
   <form class="search-box" method="get" action="/inventario/productos/terminado">
-    <input type="text" name="q" placeholder="Buscar por nombre o SKU..." value="<%= search %>">
-    <input type="text" name="medidas" placeholder="Medidas (ej: 20X30)" value="<%= measures %>">
-    <input type="text" name="color" placeholder="Buscar por color..." value="<%= color %>">
-    <button class="btn secondary" type="submit">Buscar</button>
+    <input type="text" class="search-main" name="q" placeholder="Buscar por nombre o SKU..." value="<%= search %>">
+    <div class="search-extra">
+      <input type="text" class="search-filter" name="medidas" placeholder="Medidas (20X30)" value="<%= measures %>">
+      <input type="text" class="search-filter" name="color" placeholder="Color" value="<%= color %>">
+      <button class="btn secondary" type="submit">Buscar</button>
+    </div>
   </form>
   <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
     <%- include('../partials/bulk-import-buttons', { templateUrl: '/inventario/productos/terminado/plantilla', importUrl: '/inventario/productos/terminado/importar' }) %>
