@@ -4,6 +4,7 @@ import db from '../db/index.js';
 import { hasPermission, requirePermission } from '../auth.js';
 import { buildTemplateWorkbook, importFromBuffer } from '../bulkImport.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -106,6 +107,7 @@ function registerBulkRoutes(slug) {
 
     try {
       req.session.importResult = await importFromBuffer(type, req.file.buffer);
+      await logActivity(req, `Importó ${req.session.importResult.created} producto(s) desde Excel en ${slug}`);
     } catch (err) {
       req.session.importResult = { created: 0, errors: ['No se pudo leer el archivo. Verifica que sea el formato de la plantilla descargada.'] };
     }
@@ -335,6 +337,7 @@ router.post('/', requireProductPermission('agregar'), asyncHandler(async (req, r
 
   await saveProductConversions(productId, req.body);
 
+  await logActivity(req, `Creó el producto "${sku.trim()} — ${name.trim()}"`);
   res.redirect(await getProductListUrl(category_id));
 }));
 
@@ -405,12 +408,14 @@ router.post('/:id', requireProductPermission('modificar'), asyncHandler(async (r
 
   await saveProductConversions(req.params.id, req.body);
 
+  await logActivity(req, `Editó el producto "${sku.trim()} — ${name.trim()}"`);
   res.redirect(await getProductListUrl(category_id));
 }));
 
 router.post('/:id/delete', requireProductPermission('eliminar'), asyncHandler(async (req, res) => {
-  const product = await db.prepare('SELECT category_id FROM products WHERE id = ?').get(req.params.id);
+  const product = await db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   await db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó el producto "${product ? `${product.sku} — ${product.name}` : req.params.id}"`);
   res.redirect(await getProductListUrl(product?.category_id));
 }));
 

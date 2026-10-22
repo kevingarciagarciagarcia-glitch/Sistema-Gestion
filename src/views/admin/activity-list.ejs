@@ -1,0 +1,47 @@
+<%- include('../partials/admin-header', { currentPage: 'actividad' }) %>
+
+<h1>Log de Actividades</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="toolbar">
+  <form class="search-box" method="get" action="/administracion/actividad">
+    <input type="text" name="q" placeholder="Buscar por usuario o descripción..." value="<%= search %>">
+    <input type="date" name="from" value="<%= from %>" title="Desde">
+    <input type="date" name="to" value="<%= to %>" title="Hasta">
+    <button class="btn secondary" type="submit">Buscar</button>
+  </form>
+</div>
+
+<div class="card">
+  <% if (entries.length === 0) { %>
+    <p class="empty">No hay actividad registrada todavía.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr><th>Fecha</th><th>Hora</th><th>Usuario</th><th>Descripción</th></tr>
+      </thead>
+      <tbody>
+        <% entries.forEach(e => {
+          const [datePart, timePart] = (e.created_at || '').split(' ');
+        %>
+          <tr>
+            <td><%= datePart || '—' %></td>
+            <td><%= timePart || '—' %></td>
+            <td><%= e.username || '—' %></td>
+            <td><%= e.description %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+    <% if (entries.length === 300) { %>
+      <p class="muted" style="margin-top: 1rem;">Mostrando los últimos 300 registros. Usa el buscador para filtrar por fecha o usuario.</p>
+    <% } %>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

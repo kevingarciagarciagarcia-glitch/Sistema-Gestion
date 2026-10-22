@@ -3,6 +3,7 @@ import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { hashPassword } from '../password.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 
@@ -47,6 +48,7 @@ router.post('/', requirePermission('usuarios', 'agregar'), asyncHandler(async (r
     return res.redirect('/administracion/usuarios/new?error=Ya existe un usuario con ese nombre');
   }
 
+  await logActivity(req, `Creó el usuario "${username.trim()}"`);
   res.redirect('/administracion/usuarios');
 }));
 
@@ -80,6 +82,7 @@ router.post('/:id', requirePermission('usuarios', 'modificar'), asyncHandler(asy
     return res.redirect(`/administracion/usuarios/${req.params.id}/edit?error=Ya existe un usuario con ese nombre`);
   }
 
+  await logActivity(req, `Editó el usuario "${username.trim()}"${password ? ' (incluye cambio de contraseña)' : ''}`);
   res.redirect('/administracion/usuarios');
 }));
 
@@ -88,7 +91,9 @@ router.post('/:id/delete', requirePermission('usuarios', 'eliminar'), asyncHandl
     return res.redirect('/administracion/usuarios?error=No puedes eliminar tu propio usuario');
   }
 
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   await db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó el usuario "${user?.username || req.params.id}"`);
   res.redirect('/administracion/usuarios');
 }));
 

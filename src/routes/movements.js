@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 
@@ -316,6 +317,10 @@ router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async
     await tx.rollback();
     return res.redirect('/inventario/movimientos/new?error=No se pudo registrar el movimiento');
   }
+
+  const typeLabel = type === 'in' ? 'entrada' : type === 'out' ? 'salida' : 'traspaso';
+  const itemsSummary = resolved.map((r) => `${r.item.sku || r.item.code} (${r.quantity})`).join(', ');
+  await logActivity(req, `Registró una hoja de ${typeLabel} con ${resolved.length} ítem(s): ${itemsSummary}`);
 
   res.redirect(`/inventario/movimientos/lote/${batchId}`);
 }));

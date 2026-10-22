@@ -4,6 +4,7 @@ import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { buildTemplateWorkbook, importFromBuffer } from '../bulkImport.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -59,6 +60,7 @@ router.post('/importar', requirePermission('suministros', 'agregar'), upload.sin
 
   try {
     req.session.importResult = await importFromBuffer('suministros', req.file.buffer);
+    await logActivity(req, `Importó ${req.session.importResult.created} suministro(s) desde Excel`);
   } catch (err) {
     req.session.importResult = { created: 0, errors: ['No se pudo leer el archivo. Verifica que sea el formato de la plantilla descargada.'] };
   }
@@ -107,6 +109,7 @@ router.post('/', requirePermission('suministros', 'agregar'), asyncHandler(async
     return res.redirect('/inventario/suministros/new?error=Ya existe un suministro con ese código');
   }
 
+  await logActivity(req, `Creó el suministro "${code.trim()} — ${description.trim()}"`);
   res.redirect('/inventario/suministros');
 }));
 
@@ -154,11 +157,14 @@ router.post('/:id', requirePermission('suministros', 'modificar'), asyncHandler(
     return res.redirect(`/inventario/suministros/${req.params.id}/edit?error=Ya existe un suministro con ese código`);
   }
 
+  await logActivity(req, `Editó el suministro "${code.trim()} — ${description.trim()}"`);
   res.redirect('/inventario/suministros');
 }));
 
 router.post('/:id/delete', requirePermission('suministros', 'eliminar'), asyncHandler(async (req, res) => {
+  const supply = await getSupplyOr404(req.params.id);
   await db.prepare('DELETE FROM supplies WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó el suministro "${supply ? `${supply.code} — ${supply.description}` : req.params.id}"`);
   res.redirect('/inventario/suministros');
 }));
 

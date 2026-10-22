@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 
@@ -32,6 +33,7 @@ router.post('/', requirePermission('unidades', 'agregar'), asyncHandler(async (r
     return res.redirect('/inventario/unidades?error=Ya existe una unidad con ese nombre');
   }
 
+  await logActivity(req, `Creó la unidad "${name.trim()}"`);
   res.redirect('/inventario/unidades');
 }));
 
@@ -43,7 +45,9 @@ router.post('/:id/delete', requirePermission('unidades', 'eliminar'), asyncHandl
     return res.redirect('/inventario/unidades?error=No se puede eliminar: hay productos o conversiones usando esta unidad');
   }
 
+  const unit = await db.prepare('SELECT * FROM units WHERE id = ?').get(req.params.id);
   await db.prepare('DELETE FROM units WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó la unidad "${unit?.name || req.params.id}"`);
   res.redirect('/inventario/unidades');
 }));
 

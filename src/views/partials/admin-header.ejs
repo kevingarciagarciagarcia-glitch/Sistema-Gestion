@@ -31,6 +31,9 @@
         <% if (hasPermission('usuarios', 'consultar')) { %>
           <a href="/administracion/usuarios" class="<%= currentPage === 'users' ? 'active' : '' %>">Usuarios</a>
         <% } %>
+        <% if (hasPermission('actividad', 'consultar')) { %>
+          <a href="/administracion/actividad" class="<%= currentPage === 'actividad' ? 'active' : '' %>">Log de Actividades</a>
+        <% } %>
       </nav>
       <%- include('userbox') %>
     </aside>

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 
@@ -29,6 +30,7 @@ router.post('/', requirePermission('vendedores', 'agregar'), asyncHandler(async 
     return res.redirect('/pedidos/vendedores?error=Ya existe un vendedor con ese nombre');
   }
 
+  await logActivity(req, `Creó el vendedor "${name.trim()}"`);
   res.redirect('/pedidos/vendedores');
 }));
 
@@ -38,7 +40,9 @@ router.post('/:id/delete', requirePermission('vendedores', 'eliminar'), asyncHan
     return res.redirect('/pedidos/vendedores?error=No se puede eliminar: hay órdenes de pedido con este vendedor');
   }
 
+  const seller = await db.prepare('SELECT * FROM sellers WHERE id = ?').get(req.params.id);
   await db.prepare('DELETE FROM sellers WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó el vendedor "${seller?.name || req.params.id}"`);
   res.redirect('/pedidos/vendedores');
 }));
 

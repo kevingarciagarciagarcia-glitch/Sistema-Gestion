@@ -3,6 +3,7 @@ import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { MODULES } from '../permissions.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 
@@ -63,6 +64,7 @@ router.post('/', requirePermission('perfiles', 'agregar'), asyncHandler(async (r
   }
 
   await saveProfilePermissions(profileId, req.body);
+  await logActivity(req, `Creó el perfil "${name.trim()}"`);
   res.redirect('/administracion/perfiles');
 }));
 
@@ -98,6 +100,7 @@ router.post('/:id', requirePermission('perfiles', 'modificar'), asyncHandler(asy
   }
 
   await saveProfilePermissions(profile.id, req.body);
+  await logActivity(req, `Editó el perfil "${name.trim()}" (incluye sus permisos)`);
   res.redirect('/administracion/perfiles');
 }));
 
@@ -113,6 +116,7 @@ router.post('/:id/delete', requirePermission('perfiles', 'eliminar'), asyncHandl
   }
 
   await db.prepare('DELETE FROM profiles WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó el perfil "${profile?.name || req.params.id}"`);
   res.redirect('/administracion/perfiles');
 }));
 

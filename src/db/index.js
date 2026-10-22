@@ -261,6 +261,14 @@ async function initSchema() {
       role TEXT NOT NULL CHECK (role IN ('cliente', 'proveedor', 'empleado', 'accionista')),
       UNIQUE (person_id, role)
     );
+
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      username TEXT,
+      description TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+    );
   `);
 
   // sales_orders se crea antes que people en este script, así que el vínculo

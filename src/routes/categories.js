@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.post('/', requirePermission('categorias', 'agregar'), asyncHandler(async 
     return res.redirect('/inventario/categorias?error=Ya existe una categoría con ese nombre');
   }
 
+  await logActivity(req, `Creó la categoría "${name.trim()}"`);
   res.redirect('/inventario/categorias');
 }));
 
@@ -55,6 +57,7 @@ router.post('/:id/delete', requirePermission('categorias', 'eliminar'), asyncHan
   }
 
   await db.prepare('DELETE FROM categories WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó la categoría "${category?.name || req.params.id}"`);
   res.redirect('/inventario/categorias');
 }));
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 const ITEM_TYPES = ['rollo', 'funda', 'lamina'];
@@ -141,6 +142,7 @@ router.post('/', requirePermission('ordenes', 'agregar'), asyncHandler(async (re
   );
 
   await saveOrderItems(info.lastInsertRowid, items);
+  await logActivity(req, `Creó la orden de pedido #${info.lastInsertRowid} para "${client.trim()}"`);
   res.redirect(`/pedidos/${info.lastInsertRowid}`);
 }));
 
@@ -180,11 +182,14 @@ router.post('/:id', requirePermission('ordenes', 'modificar'), asyncHandler(asyn
   );
 
   await saveOrderItems(req.params.id, items);
+  await logActivity(req, `Editó la orden de pedido #${req.params.id} para "${client.trim()}"`);
   res.redirect(`/pedidos/${req.params.id}`);
 }));
 
 router.post('/:id/delete', requirePermission('ordenes', 'eliminar'), asyncHandler(async (req, res) => {
+  const order = await db.prepare('SELECT * FROM sales_orders WHERE id = ?').get(req.params.id);
   await db.prepare('DELETE FROM sales_orders WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó la orden de pedido #${req.params.id}${order ? ` ("${order.client}")` : ''}`);
   res.redirect('/pedidos');
 }));
 

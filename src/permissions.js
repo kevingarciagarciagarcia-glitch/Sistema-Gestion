@@ -53,7 +53,8 @@ export const MODULES = [
     homeUrl: '/administracion/perfiles',
     windows: [
       { key: 'perfiles', label: 'Perfiles', url: '/administracion/perfiles', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] },
-      { key: 'usuarios', label: 'Usuarios', url: '/administracion/usuarios', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] }
+      { key: 'usuarios', label: 'Usuarios', url: '/administracion/usuarios', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] },
+      { key: 'actividad', label: 'Log de Actividades', url: '/administracion/actividad', actions: ['consultar'] }
     ]
   }
 ];

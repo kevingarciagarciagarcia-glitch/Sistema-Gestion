@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { logActivity } from '../activityLog.js';
 
 const router = Router();
 
@@ -104,6 +105,7 @@ router.post('/', requirePermission('personas', 'agregar'), asyncHandler(async (r
   );
 
   await saveRoles(info.lastInsertRowid, req.body);
+  await logActivity(req, `Creó la persona "${fields.name}"`);
 
   if (modal) {
     return res.render('people/created', { id: info.lastInsertRowid, name: fields.name });
@@ -140,11 +142,14 @@ router.post('/:id', requirePermission('personas', 'modificar'), asyncHandler(asy
   );
 
   await saveRoles(req.params.id, req.body);
+  await logActivity(req, `Editó la persona "${fields.name}"`);
   res.redirect('/personas');
 }));
 
 router.post('/:id/delete', requirePermission('personas', 'eliminar'), asyncHandler(async (req, res) => {
+  const person = await db.prepare('SELECT * FROM people WHERE id = ?').get(req.params.id);
   await db.prepare('DELETE FROM people WHERE id = ?').run(req.params.id);
+  await logActivity(req, `Eliminó la persona "${person?.name || req.params.id}"`);
   res.redirect('/personas');
 }));
 
