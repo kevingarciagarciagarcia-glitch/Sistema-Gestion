@@ -10,6 +10,23 @@ function getSellers() {
   return db.prepare('SELECT * FROM sellers ORDER BY name').all();
 }
 
+async function getClients() {
+  const rows = await db.prepare(`
+    SELECT p.id, p.name, p.commercial_name, p.ruc, p.cedula
+    FROM people p
+    JOIN person_roles r ON r.person_id = p.id
+    WHERE r.role = 'cliente'
+    ORDER BY p.name
+  `).all();
+
+  return rows.map((p) => ({
+    id: p.id,
+    name: p.name,
+    detail: [p.commercial_name, p.ruc || p.cedula].filter(Boolean).join(' · '),
+    searchText: [p.name, p.commercial_name, p.ruc, p.cedula].filter((v) => v).join(' ').toLowerCase()
+  }));
+}
+
 async function getOrderOr404(id) {
   const order = await db.prepare('SELECT * FROM sales_orders WHERE id = ?').get(id);
   if (!order) return null;
@@ -93,11 +110,11 @@ router.get('/', requirePermission('ordenes', 'consultar'), asyncHandler(async (r
 }));
 
 router.get('/new', requirePermission('ordenes', 'agregar'), asyncHandler(async (req, res) => {
-  res.render('orders/form', { order: null, sellers: await getSellers() });
+  res.render('orders/form', { order: null, sellers: await getSellers(), clients: await getClients() });
 }));
 
 router.post('/', requirePermission('ordenes', 'agregar'), asyncHandler(async (req, res) => {
-  const { client, proforma_number, order_date, delivery_date, city, branch, seller_id } = req.body;
+  const { client, client_id, proforma_number, order_date, delivery_date, city, branch, seller_id } = req.body;
 
   if (!client?.trim() || !seller_id) {
     return res.redirect('/pedidos/new?error=Cliente y vendedor son obligatorios');
@@ -109,11 +126,12 @@ router.post('/', requirePermission('ordenes', 'agregar'), asyncHandler(async (re
   }
 
   const info = await db.prepare(`
-    INSERT INTO sales_orders (client, proforma_number, order_date, delivery_date, city, branch, seller_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sales_orders (client, client_id, proforma_number, order_date, delivery_date, city, branch, seller_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING id
   `).run(
     client.trim(),
+    client_id || null,
     proforma_number?.trim() || null,
     order_date || null,
     delivery_date || null,
@@ -130,11 +148,11 @@ router.get('/:id/edit', requirePermission('ordenes', 'modificar'), asyncHandler(
   const order = await getOrderOr404(req.params.id);
   if (!order) return res.redirect('/pedidos');
 
-  res.render('orders/form', { order, sellers: await getSellers() });
+  res.render('orders/form', { order, sellers: await getSellers(), clients: await getClients() });
 }));
 
 router.post('/:id', requirePermission('ordenes', 'modificar'), asyncHandler(async (req, res) => {
-  const { client, proforma_number, order_date, delivery_date, city, branch, seller_id } = req.body;
+  const { client, client_id, proforma_number, order_date, delivery_date, city, branch, seller_id } = req.body;
 
   if (!client?.trim() || !seller_id) {
     return res.redirect(`/pedidos/${req.params.id}/edit?error=Cliente y vendedor son obligatorios`);
@@ -147,10 +165,11 @@ router.post('/:id', requirePermission('ordenes', 'modificar'), asyncHandler(asyn
 
   await db.prepare(`
     UPDATE sales_orders
-    SET client = ?, proforma_number = ?, order_date = ?, delivery_date = ?, city = ?, branch = ?, seller_id = ?
+    SET client = ?, client_id = ?, proforma_number = ?, order_date = ?, delivery_date = ?, city = ?, branch = ?, seller_id = ?
     WHERE id = ?
   `).run(
     client.trim(),
+    client_id || null,
     proforma_number?.trim() || null,
     order_date || null,
     delivery_date || null,

@@ -43,7 +43,7 @@
               <% } %>
             </td>
             <td><%= m.reason || '—' %></td>
-            <td><a class="btn secondary" href="/inventario/movimientos/<%= m.id %>">Ver / Imprimir</a></td>
+            <td><a class="btn secondary" href="<%= m.batch_id ? `/inventario/movimientos/lote/${m.batch_id}` : `/inventario/movimientos/${m.id}` %>">Ver / Imprimir</a></td>
           </tr>
         <% }) %>
       </tbody>

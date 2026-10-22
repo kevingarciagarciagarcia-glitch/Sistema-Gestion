@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cliente creado</title>
+</head>
+<body>
+  <script>
+    window.parent.postMessage({ type: 'person-created', id: <%= id %>, name: <%- JSON.stringify(name) %> }, window.location.origin);
+  </script>
+  <p style="font-family: system-ui, sans-serif; padding: 2rem; text-align: center; color: #16a34a;">Persona creada correctamente.</p>
+</body>
+</html>

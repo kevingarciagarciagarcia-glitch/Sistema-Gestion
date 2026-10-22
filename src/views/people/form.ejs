@@ -1,0 +1,124 @@
+<% const isModal = locals.modal === true; %>
+<% if (!isModal) { %>
+<%- include('../partials/people-header', { currentPage: 'personas' }) %>
+<% } else { %>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nuevo cliente</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body style="padding: 1rem;">
+<% } %>
+
+<h1><%= person ? 'Editar persona' : 'Nueva persona' %></h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <form method="post" action="<%= person ? `/personas/${person.id}` : '/personas' %>">
+    <% if (isModal) { %><input type="hidden" name="modal" value="1"><% } %>
+    <div class="form-grid">
+      <div class="field">
+        <label for="type">Tipo</label>
+        <select id="type" name="type" required>
+          <option value="">Selecciona...</option>
+          <option value="natural" <%= person?.type === 'natural' ? 'selected' : '' %>>Natural</option>
+          <option value="juridico" <%= person?.type === 'juridico' ? 'selected' : '' %>>Jurídico</option>
+          <option value="sin_ruc" <%= person?.type === 'sin_ruc' ? 'selected' : '' %>>Sin RUC/CI</option>
+        </select>
+      </div>
+      <div class="field" id="ruc-field">
+        <label for="ruc">RUC</label>
+        <input type="text" id="ruc" name="ruc" value="<%= person?.ruc || '' %>">
+      </div>
+      <div class="field" id="cedula-field">
+        <label for="cedula">Cédula</label>
+        <input type="text" id="cedula" name="cedula" value="<%= person?.cedula || '' %>">
+      </div>
+      <div class="field">
+        <label for="name">Nombre</label>
+        <input type="text" id="name" name="name" value="<%= person?.name || '' %>" required>
+      </div>
+      <div class="field">
+        <label for="commercial_name">Nombre comercial</label>
+        <input type="text" id="commercial_name" name="commercial_name" value="<%= person?.commercial_name || '' %>">
+      </div>
+      <div class="field">
+        <label for="phone">Teléfono</label>
+        <input type="text" id="phone" name="phone" value="<%= person?.phone || '' %>">
+      </div>
+      <div class="field">
+        <label for="email">Correo</label>
+        <input type="email" id="email" name="email" value="<%= person?.email || '' %>">
+      </div>
+      <div class="field">
+        <label for="province">Provincia</label>
+        <select id="province" name="province">
+          <option value="">Selecciona...</option>
+          <% PROVINCES.forEach(prov => { %>
+            <option value="<%= prov %>" <%= person?.province === prov ? 'selected' : '' %>><%= prov %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="address">Dirección</label>
+        <input type="text" id="address" name="address" value="<%= person?.address || '' %>">
+      </div>
+    </div>
+
+    <h2>Roles</h2>
+    <p class="muted" style="margin: -0.25rem 0 1rem;">Selecciona uno o más roles que esta persona cumple en el sistema.</p>
+    <div class="form-grid" style="margin-bottom: 1.5rem;">
+      <% ROLES.forEach(role => { %>
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+          <input type="checkbox" name="roles" value="<%= role %>" style="width: auto;" <%= roles.includes(role) ? 'checked' : '' %>>
+          <%= ROLE_LABELS[role] %>
+        </label>
+      <% }) %>
+    </div>
+
+    <button class="btn" type="submit">Guardar</button>
+    <% if (isModal) { %>
+      <button type="button" class="btn secondary" id="cancel-modal-btn">Cancelar</button>
+    <% } else { %>
+      <a class="btn secondary" href="/personas">Cancelar</a>
+    <% } %>
+  </form>
+</div>
+
+<script>
+  <% if (isModal) { %>
+  document.getElementById('cancel-modal-btn').addEventListener('click', () => {
+    window.parent.postMessage({ type: 'person-modal-cancel' }, window.location.origin);
+  });
+  <% } %>
+
+  const typeSelect = document.getElementById('type');
+  const rucField = document.getElementById('ruc-field');
+  const cedulaField = document.getElementById('cedula-field');
+  const rucInput = document.getElementById('ruc');
+  const cedulaInput = document.getElementById('cedula');
+
+  function updateTypeFields() {
+    const type = typeSelect.value;
+    rucField.style.display = type === 'juridico' ? '' : 'none';
+    cedulaField.style.display = type === 'natural' ? '' : 'none';
+    rucInput.required = type === 'juridico';
+    cedulaInput.required = type === 'natural';
+  }
+
+  typeSelect.addEventListener('change', updateTypeFields);
+  updateTypeFields();
+</script>
+
+<% if (!isModal) { %>
+<%- include('../partials/footer') %>
+<% } else { %>
+</body>
+</html>
+<% } %>

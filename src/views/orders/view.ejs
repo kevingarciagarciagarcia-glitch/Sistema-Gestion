@@ -56,4 +56,11 @@
   </div>
 </div>
 
+<style>
+  @media print {
+    header.topbar, .toolbar, .sidebar, .sidebar-open-btn { display: none !important; }
+    main { padding: 0; max-width: none; }
+  }
+</style>
+
 <%- include('../partials/footer') %>

@@ -1,0 +1,53 @@
+<%- include('../partials/people-header', { currentPage: 'personas' }) %>
+
+<h1>Personas</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="toolbar">
+  <form class="search-box" method="get" action="/personas">
+    <input type="text" name="q" placeholder="Buscar por nombre, RUC o cédula..." value="<%= search %>">
+  </form>
+  <a class="btn" href="/personas/new">+ Nueva persona</a>
+</div>
+
+<div class="card">
+  <% if (people.length === 0) { %>
+    <p class="empty">Todavía no hay personas registradas.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Tipo</th><th>RUC/Cédula</th><th>Nombre</th><th>Nombre comercial</th>
+          <th>Teléfono</th><th>Correo</th><th>Provincia</th><th>Roles</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% people.forEach(p => { %>
+          <tr>
+            <td><%= p.type === 'natural' ? 'Natural' : p.type === 'juridico' ? 'Jurídico' : 'Sin RUC/CI' %></td>
+            <td><%= p.ruc || p.cedula || '—' %></td>
+            <td><%= p.name %></td>
+            <td><%= p.commercial_name || '—' %></td>
+            <td><%= p.phone || '—' %></td>
+            <td><%= p.email || '—' %></td>
+            <td><%= p.province || '—' %></td>
+            <td><%= (rolesByPerson[p.id] || []).join(', ') || '—' %></td>
+            <td class="actions-cell">
+              <a class="btn secondary" href="/personas/<%= p.id %>/edit">Editar</a>
+              <form class="inline" method="post" action="/personas/<%= p.id %>/delete" onsubmit="return confirm('¿Eliminar esta persona?');">
+                <button class="btn danger" type="submit">Eliminar</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

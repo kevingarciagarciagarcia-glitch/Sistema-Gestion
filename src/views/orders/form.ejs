@@ -10,9 +10,14 @@
   <form method="post" action="<%= order ? `/pedidos/${order.id}` : '/pedidos' %>" id="order-form">
     <h2 style="margin-top: 0;">Datos de la orden</h2>
     <div class="form-grid">
-      <div class="field">
-        <label for="client">Cliente</label>
-        <input type="text" id="client" name="client" value="<%= order?.client || '' %>" required>
+      <div class="field" style="position: relative;">
+        <label for="client_search">Cliente</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="client_search" name="client" placeholder="Buscar cliente o escribir nombre..." autocomplete="off" value="<%= order?.client || '' %>" required style="flex: 1;">
+          <button type="button" class="btn secondary" id="new-client-btn" style="white-space: nowrap;">+ Nuevo</button>
+        </div>
+        <input type="hidden" id="client_id" name="client_id" value="<%= order?.client_id || '' %>">
+        <div id="client_suggestions" class="suggestions-list"></div>
       </div>
       <div class="field">
         <label for="proforma_number">N° Proforma</label>
@@ -93,7 +98,112 @@
   </form>
 </div>
 
+<div id="client-modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 100; align-items: center; justify-content: center;">
+  <div style="background: var(--card); border-radius: 10px; width: min(720px, 92vw); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);">
+      <strong>Nuevo cliente</strong>
+      <button type="button" id="close-client-modal" class="btn secondary" style="padding: 0.3rem 0.6rem;">✕</button>
+    </div>
+    <iframe id="client-modal-iframe" src="about:blank" title="Nuevo cliente" style="border: 0; flex: 1; min-height: 560px;"></iframe>
+  </div>
+</div>
+
 <script>
+  const CLIENTS = <%- JSON.stringify(clients) %>;
+  const clientSearch = document.getElementById('client_search');
+  const clientIdInput = document.getElementById('client_id');
+  const clientSuggestions = document.getElementById('client_suggestions');
+  const newClientBtn = document.getElementById('new-client-btn');
+  const clientModalOverlay = document.getElementById('client-modal-overlay');
+  const clientModalIframe = document.getElementById('client-modal-iframe');
+  const closeClientModalBtn = document.getElementById('close-client-modal');
+
+  function renderClientSuggestions(matches) {
+    clientSuggestions.innerHTML = '';
+
+    if (matches.length === 0) {
+      clientSuggestions.style.display = 'none';
+      return;
+    }
+
+    matches.slice(0, 8).forEach((c) => {
+      const row = document.createElement('div');
+      row.className = 'suggestion-item';
+
+      const main = document.createElement('div');
+      main.textContent = c.name;
+      row.appendChild(main);
+
+      if (c.detail) {
+        const detail = document.createElement('div');
+        detail.className = 'suggestion-detail';
+        detail.textContent = c.detail;
+        row.appendChild(detail);
+      }
+
+      row.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        clientSearch.value = c.name;
+        clientIdInput.value = c.id;
+        clientSuggestions.style.display = 'none';
+      });
+      clientSuggestions.appendChild(row);
+    });
+
+    clientSuggestions.style.display = 'block';
+  }
+
+  function searchClients(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return CLIENTS.filter((c) => c.searchText.includes(q));
+  }
+
+  clientSearch.addEventListener('input', () => {
+    clientIdInput.value = '';
+    renderClientSuggestions(searchClients(clientSearch.value));
+  });
+
+  clientSearch.addEventListener('focus', () => {
+    if (clientSearch.value.trim()) {
+      renderClientSuggestions(searchClients(clientSearch.value));
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target !== clientSearch) {
+      clientSuggestions.style.display = 'none';
+    }
+  });
+
+  function openClientModal() {
+    clientModalIframe.src = '/personas/new?modal=1';
+    clientModalOverlay.style.display = 'flex';
+  }
+
+  function closeClientModal() {
+    clientModalOverlay.style.display = 'none';
+    clientModalIframe.src = 'about:blank';
+  }
+
+  newClientBtn.addEventListener('click', openClientModal);
+  closeClientModalBtn.addEventListener('click', closeClientModal);
+
+  window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
+    const data = event.data;
+    if (!data) return;
+
+    if (data.type === 'person-created') {
+      clientSearch.value = data.name;
+      clientIdInput.value = data.id;
+      CLIENTS.push({ id: data.id, name: data.name, detail: '', searchText: data.name.toLowerCase() });
+      closeClientModal();
+    } else if (data.type === 'person-modal-cancel') {
+      closeClientModal();
+    }
+  });
+
   let rowIndex = <%= initialItems.length %>;
   const itemsBody = document.getElementById('items-body');
   const addRowBtn = document.getElementById('add-row-btn');

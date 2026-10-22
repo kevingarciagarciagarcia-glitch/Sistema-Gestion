@@ -19,6 +19,7 @@ import adminProfilesRouter from './routes/admin-profiles.js';
 import adminUsersRouter from './routes/admin-users.js';
 import ordersRouter from './routes/orders.js';
 import sellersRouter from './routes/sellers.js';
+import peopleRouter from './routes/people.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -59,6 +60,7 @@ app.use('/administracion/perfiles', requireAuth, adminProfilesRouter);
 app.use('/administracion/usuarios', requireAuth, adminUsersRouter);
 app.use('/pedidos/vendedores', requireAuth, sellersRouter);
 app.use('/pedidos', requireAuth, ordersRouter);
+app.use('/personas', requireAuth, peopleRouter);
 
 app.use((err, req, res, next) => {
   console.error(err);

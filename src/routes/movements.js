@@ -177,35 +177,44 @@ router.get('/new', requirePermission('movimientos', 'agregar'), asyncHandler(asy
 }));
 
 router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
-  const { item_type, item_id, type, quantity, unit_id, warehouse_id, from_warehouse_id, to_warehouse_id, reason } = req.body;
-  const enteredQty = Number(quantity);
+  const { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason } = req.body;
+  const rawItems = req.body.items ? Object.values(req.body.items) : [];
 
-  if (!item_id || !['product', 'supply'].includes(item_type) || !['in', 'out', 'traspaso'].includes(type) || !enteredQty || enteredQty <= 0 || !unit_id) {
-    return res.redirect('/inventario/movimientos/new?error=Datos de movimiento inválidos');
+  if (!['in', 'out', 'traspaso'].includes(type)) {
+    return res.redirect('/inventario/movimientos/new?error=Selecciona el tipo de movimiento');
   }
 
-  if (item_type === 'supply' && type === 'traspaso') {
-    return res.redirect('/inventario/movimientos/new?error=Los suministros solo admiten entradas y salidas');
+  const lines = [];
+  for (const raw of rawItems) {
+    if (!raw.item_type || !raw.item_id) continue;
+
+    if (!['product', 'supply'].includes(raw.item_type)) {
+      return res.redirect('/inventario/movimientos/new?error=Hay un elemento inválido en una de las líneas');
+    }
+    if (raw.item_type === 'supply' && type === 'traspaso') {
+      return res.redirect('/inventario/movimientos/new?error=Los suministros solo admiten entradas y salidas');
+    }
+
+    const enteredQty = Number(raw.quantity);
+    if (!raw.unit_id || !enteredQty || enteredQty <= 0) {
+      return res.redirect('/inventario/movimientos/new?error=Completa la cantidad y la unidad de cada línea agregada');
+    }
+
+    lines.push({ item_type: raw.item_type, item_id: raw.item_id, quantity: enteredQty, unit_id: raw.unit_id });
   }
 
-  const item = item_type === 'product'
-    ? await db.prepare('SELECT * FROM products WHERE id = ?').get(item_id)
-    : await db.prepare('SELECT * FROM supplies WHERE id = ?').get(item_id);
-
-  if (!item) {
-    return res.redirect('/inventario/movimientos/new?error=Elemento no encontrado');
+  if (lines.length === 0) {
+    return res.redirect('/inventario/movimientos/new?error=Agrega al menos un producto o suministro');
   }
 
-  const factor = item_type === 'product'
-    ? await findConversionFactor(item, unit_id)
-    : (Number(unit_id) === Number(item.unit_id) ? 1 : null);
-
-  if (factor === null) {
-    return res.redirect('/inventario/movimientos/new?error=No existe una conversión entre esa unidad y la unidad del elemento');
+  const seen = new Set();
+  for (const line of lines) {
+    const key = `${line.item_type}:${line.item_id}`;
+    if (seen.has(key)) {
+      return res.redirect('/inventario/movimientos/new?error=Un mismo producto o suministro aparece en más de una línea: suma la cantidad en una sola línea');
+    }
+    seen.add(key);
   }
-
-  const convertedQty = round(enteredQty * factor);
-  const itemTable = item_type === 'product' ? 'products' : 'supplies';
 
   if (type === 'traspaso') {
     if (!from_warehouse_id || !to_warehouse_id) {
@@ -214,71 +223,133 @@ router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async
     if (from_warehouse_id === to_warehouse_id) {
       return res.redirect('/inventario/movimientos/new?error=La bodega origen y destino deben ser distintas');
     }
-
-    const stockAtOrigin = await getWarehouseStock(item_type, item.id, from_warehouse_id);
-    if (convertedQty > stockAtOrigin) {
-      return res.redirect('/inventario/movimientos/new?error=No hay suficiente stock en la bodega origen');
-    }
-
-    let newMovementId;
-    const tx = await db.beginTransaction();
-    try {
-      await adjustWarehouseStock(tx, item_type, item.id, from_warehouse_id, -convertedQty);
-      await adjustWarehouseStock(tx, item_type, item.id, to_warehouse_id, convertedQty);
-      const info = await tx.prepare(`
-        INSERT INTO movements (item_type, product_id, supply_id, type, quantity, input_unit_id, input_quantity, from_warehouse_id, to_warehouse_id, reason, created_by)
-        VALUES (?, ?, ?, 'traspaso', ?, ?, ?, ?, ?, ?, ?)
-        RETURNING id
-      `).run(
-        item_type,
-        item_type === 'product' ? item.id : null,
-        item_type === 'supply' ? item.id : null,
-        convertedQty, unit_id, enteredQty, from_warehouse_id, to_warehouse_id, reason?.trim() || null, req.user.id
-      );
-      newMovementId = info.lastInsertRowid;
-      await tx.commit();
-    } catch (err) {
-      await tx.rollback();
-      return res.redirect('/inventario/movimientos/new?error=No se pudo registrar el traspaso');
-    }
-
-    return res.redirect(`/inventario/movimientos/${newMovementId}`);
-  }
-
-  if (!warehouse_id) {
+  } else if (!warehouse_id) {
     return res.redirect('/inventario/movimientos/new?error=Selecciona la bodega');
   }
 
-  if (type === 'out' && convertedQty > item.quantity) {
-    return res.redirect('/inventario/movimientos/new?error=No hay suficiente stock para esa salida');
+  const resolved = [];
+  for (const line of lines) {
+    const item = line.item_type === 'product'
+      ? await db.prepare('SELECT * FROM products WHERE id = ?').get(line.item_id)
+      : await db.prepare('SELECT * FROM supplies WHERE id = ?').get(line.item_id);
+
+    if (!item) {
+      return res.redirect('/inventario/movimientos/new?error=Uno de los elementos no fue encontrado');
+    }
+
+    const label = item.name || item.description;
+
+    const factor = line.item_type === 'product'
+      ? await findConversionFactor(item, line.unit_id)
+      : (Number(line.unit_id) === Number(item.unit_id) ? 1 : null);
+
+    if (factor === null) {
+      return res.redirect(`/inventario/movimientos/new?error=${encodeURIComponent(`No existe una conversión de unidad para "${label}"`)}`);
+    }
+
+    const convertedQty = round(line.quantity * factor);
+
+    if (type === 'traspaso') {
+      const stockAtOrigin = await getWarehouseStock(line.item_type, item.id, from_warehouse_id);
+      if (convertedQty > stockAtOrigin) {
+        return res.redirect(`/inventario/movimientos/new?error=${encodeURIComponent(`No hay suficiente stock en la bodega origen para "${label}"`)}`);
+      }
+    } else if (type === 'out' && convertedQty > item.quantity) {
+      return res.redirect(`/inventario/movimientos/new?error=${encodeURIComponent(`No hay suficiente stock para la salida de "${label}"`)}`);
+    }
+
+    resolved.push({ ...line, item, convertedQty });
   }
 
-  const newQuantity = round(type === 'in' ? item.quantity + convertedQty : item.quantity - convertedQty);
-  const warehouseDelta = type === 'in' ? convertedQty : -convertedQty;
-
-  let newMovementId;
+  let batchId;
   const tx = await db.beginTransaction();
   try {
-    await tx.prepare(`UPDATE ${itemTable} SET quantity = ? WHERE id = ?`).run(newQuantity, item.id);
-    await adjustWarehouseStock(tx, item_type, item.id, warehouse_id, warehouseDelta);
-    const info = await tx.prepare(`
-      INSERT INTO movements (item_type, product_id, supply_id, type, quantity, input_unit_id, input_quantity, warehouse_id, reason, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    const batchInfo = await tx.prepare(`
+      INSERT INTO movement_batches (type, warehouse_id, from_warehouse_id, to_warehouse_id, reason, created_by)
+      VALUES (?, ?, ?, ?, ?, ?)
       RETURNING id
     `).run(
-      item_type,
-      item_type === 'product' ? item.id : null,
-      item_type === 'supply' ? item.id : null,
-      type, convertedQty, unit_id, enteredQty, warehouse_id, reason?.trim() || null, req.user.id
+      type,
+      type === 'traspaso' ? null : warehouse_id,
+      type === 'traspaso' ? from_warehouse_id : null,
+      type === 'traspaso' ? to_warehouse_id : null,
+      reason?.trim() || null,
+      req.user.id
     );
-    newMovementId = info.lastInsertRowid;
+    batchId = batchInfo.lastInsertRowid;
+
+    for (const r of resolved) {
+      const itemTable = r.item_type === 'product' ? 'products' : 'supplies';
+
+      if (type === 'traspaso') {
+        await adjustWarehouseStock(tx, r.item_type, r.item.id, from_warehouse_id, -r.convertedQty);
+        await adjustWarehouseStock(tx, r.item_type, r.item.id, to_warehouse_id, r.convertedQty);
+        await tx.prepare(`
+          INSERT INTO movements (batch_id, item_type, product_id, supply_id, type, quantity, input_unit_id, input_quantity, from_warehouse_id, to_warehouse_id, reason, created_by)
+          VALUES (?, ?, ?, ?, 'traspaso', ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          batchId, r.item_type,
+          r.item_type === 'product' ? r.item.id : null,
+          r.item_type === 'supply' ? r.item.id : null,
+          r.convertedQty, r.unit_id, r.quantity, from_warehouse_id, to_warehouse_id, reason?.trim() || null, req.user.id
+        );
+      } else {
+        const newQuantity = round(type === 'in' ? r.item.quantity + r.convertedQty : r.item.quantity - r.convertedQty);
+        const warehouseDelta = type === 'in' ? r.convertedQty : -r.convertedQty;
+
+        await tx.prepare(`UPDATE ${itemTable} SET quantity = ? WHERE id = ?`).run(newQuantity, r.item.id);
+        await adjustWarehouseStock(tx, r.item_type, r.item.id, warehouse_id, warehouseDelta);
+        await tx.prepare(`
+          INSERT INTO movements (batch_id, item_type, product_id, supply_id, type, quantity, input_unit_id, input_quantity, warehouse_id, reason, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          batchId, r.item_type,
+          r.item_type === 'product' ? r.item.id : null,
+          r.item_type === 'supply' ? r.item.id : null,
+          type, r.convertedQty, r.unit_id, r.quantity, warehouse_id, reason?.trim() || null, req.user.id
+        );
+      }
+    }
+
     await tx.commit();
   } catch (err) {
     await tx.rollback();
     return res.redirect('/inventario/movimientos/new?error=No se pudo registrar el movimiento');
   }
 
-  res.redirect(`/inventario/movimientos/${newMovementId}`);
+  res.redirect(`/inventario/movimientos/lote/${batchId}`);
+}));
+
+router.get('/lote/:id', requirePermission('movimientos', 'consultar'), asyncHandler(async (req, res) => {
+  const batch = await db.prepare(`
+    SELECT b.*, w.name AS warehouse_name, fromW.name AS from_warehouse_name, toW.name AS to_warehouse_name,
+           u.full_name AS created_by_full_name, u.username AS created_by_username
+    FROM movement_batches b
+    LEFT JOIN warehouses w ON w.id = b.warehouse_id
+    LEFT JOIN warehouses fromW ON fromW.id = b.from_warehouse_id
+    LEFT JOIN warehouses toW ON toW.id = b.to_warehouse_id
+    LEFT JOIN users u ON u.id = b.created_by
+    WHERE b.id = ?
+  `).get(req.params.id);
+
+  if (!batch) return res.redirect('/inventario/movimientos');
+
+  const lines = await db.prepare(`
+    SELECT m.*,
+           COALESCE(p.sku, s.code) AS item_code,
+           COALESCE(p.name, s.description) AS item_name,
+           COALESCE(p.unit_id, s.unit_id) AS item_unit_id,
+           baseUnit.name AS unit_name, inputUnit.name AS input_unit_name
+    FROM movements m
+    LEFT JOIN products p ON p.id = m.product_id
+    LEFT JOIN supplies s ON s.id = m.supply_id
+    LEFT JOIN units baseUnit ON baseUnit.id = COALESCE(p.unit_id, s.unit_id)
+    LEFT JOIN units inputUnit ON inputUnit.id = m.input_unit_id
+    WHERE m.batch_id = ?
+    ORDER BY m.id
+  `).all(req.params.id);
+
+  res.render('movements/batch-view', { batch, lines });
 }));
 
 router.get('/:id', requirePermission('movimientos', 'consultar'), asyncHandler(async (req, res) => {
@@ -310,6 +381,10 @@ router.get('/:id', requirePermission('movimientos', 'consultar'), asyncHandler(a
   `).get(req.params.id);
 
   if (!movement) return res.redirect('/inventario/movimientos');
+
+  if (movement.batch_id) {
+    return res.redirect(`/inventario/movimientos/lote/${movement.batch_id}`);
+  }
 
   const categories = await db.prepare('SELECT * FROM categories').all();
   const categoriesById = Object.fromEntries(categories.map((c) => [c.id, c]));

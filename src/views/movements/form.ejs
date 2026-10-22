@@ -7,15 +7,8 @@
 <% } %>
 
 <div class="card">
-  <form method="post" action="/inventario/movimientos">
-    <div class="form-grid">
-      <div class="field" style="position: relative;">
-        <label for="item_search">Producto o suministro</label>
-        <input type="text" id="item_search" placeholder="Buscar por SKU/código o nombre..." autocomplete="off" required>
-        <input type="hidden" id="item_type" name="item_type">
-        <input type="hidden" id="item_id" name="item_id">
-        <div id="item_suggestions" class="suggestions-list"></div>
-      </div>
+  <form method="post" action="/inventario/movimientos" id="movement-form">
+    <div class="form-grid" style="margin-bottom: 1rem;">
       <div class="field">
         <label for="type">Tipo de movimiento</label>
         <select id="type" name="type" required>
@@ -24,20 +17,7 @@
           <option value="traspaso" id="traspaso-option">Traspaso entre bodegas</option>
         </select>
       </div>
-      <div class="field">
-        <label for="quantity">Cantidad</label>
-        <input type="number" id="quantity" name="quantity" min="0.0001" step="any" required>
-      </div>
-      <div class="field">
-        <label for="unit_id">Unidad de la cantidad</label>
-        <select id="unit_id" name="unit_id" required>
-          <option value="">Selecciona un elemento primero</option>
-        </select>
-      </div>
-    </div>
-
-    <div id="single-warehouse-field" class="form-grid" style="margin-bottom: 1rem;">
-      <div class="field">
+      <div class="field" id="single-warehouse-field">
         <label for="warehouse_id">Bodega</label>
         <select id="warehouse_id" name="warehouse_id">
           <option value="">Selecciona una bodega</option>
@@ -46,10 +26,7 @@
           <% }) %>
         </select>
       </div>
-    </div>
-
-    <div id="transfer-warehouse-fields" class="form-grid" style="margin-bottom: 1rem; display: none;">
-      <div class="field">
+      <div class="field" id="from-warehouse-field" style="display: none;">
         <label for="from_warehouse_id">Bodega origen</label>
         <select id="from_warehouse_id" name="from_warehouse_id">
           <option value="">Selecciona una bodega</option>
@@ -58,7 +35,7 @@
           <% }) %>
         </select>
       </div>
-      <div class="field">
+      <div class="field" id="to-warehouse-field" style="display: none;">
         <label for="to_warehouse_id">Bodega destino</label>
         <select id="to_warehouse_id" name="to_warehouse_id">
           <option value="">Selecciona una bodega</option>
@@ -67,17 +44,35 @@
           <% }) %>
         </select>
       </div>
+      <div class="field">
+        <label for="reason">Motivo</label>
+        <input type="text" id="reason" name="reason" placeholder="Ej: compra a proveedor, venta, ajuste...">
+      </div>
     </div>
 
-    <div class="field" style="margin-bottom: 1rem;">
-      <label for="reason">Motivo</label>
-      <input type="text" id="reason" name="reason" placeholder="Ej: compra a proveedor, venta, ajuste...">
+    <h2>Productos / suministros</h2>
+    <p class="muted" style="margin: -0.25rem 0 1rem;">Agrega todos los ítems que quieras incluir en esta misma hoja de movimiento.</p>
+
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 2rem;">N°</th>
+          <th style="min-width: 280px;">Producto o suministro</th>
+          <th style="width: 120px;">Cantidad</th>
+          <th style="width: 160px;">Unidad</th>
+          <th style="width: 2rem;"></th>
+        </tr>
+      </thead>
+      <tbody id="items-body"></tbody>
+    </table>
     </div>
+    <button type="button" id="add-row-btn" class="btn secondary" style="margin-top: 0.75rem;">+ Agregar línea</button>
 
-    <p id="equivalence-hint" class="empty" style="padding: 0; text-align: left; display: none;"></p>
-
-    <button class="btn" type="submit">Registrar movimiento</button>
-    <a class="btn secondary" href="/inventario/movimientos">Cancelar</a>
+    <div style="margin-top: 1.5rem;">
+      <button class="btn" type="submit">Registrar movimiento</button>
+      <a class="btn secondary" href="/inventario/movimientos">Cancelar</a>
+    </div>
   </form>
 </div>
 
@@ -85,169 +80,181 @@
   const ITEM_UNIT_OPTIONS = <%- JSON.stringify(itemUnitOptions) %>;
   const ITEMS = <%- JSON.stringify(items) %>;
 
-  const itemTypeInput = document.getElementById('item_type');
-  const itemIdInput = document.getElementById('item_id');
-  const itemSearch = document.getElementById('item_search');
-  const itemSuggestions = document.getElementById('item_suggestions');
   const typeSelect = document.getElementById('type');
   const traspasoOption = document.getElementById('traspaso-option');
-  const unitSelect = document.getElementById('unit_id');
-  const quantityInput = document.getElementById('quantity');
-  const hint = document.getElementById('equivalence-hint');
-
   const singleWarehouseField = document.getElementById('single-warehouse-field');
-  const transferWarehouseFields = document.getElementById('transfer-warehouse-fields');
+  const fromWarehouseField = document.getElementById('from-warehouse-field');
+  const toWarehouseField = document.getElementById('to-warehouse-field');
   const warehouseSelect = document.getElementById('warehouse_id');
   const fromWarehouseSelect = document.getElementById('from_warehouse_id');
   const toWarehouseSelect = document.getElementById('to_warehouse_id');
+  const itemsBody = document.getElementById('items-body');
+  const addRowBtn = document.getElementById('add-row-btn');
 
-  function currentOptionsKey() {
-    return `${itemTypeInput.value}:${itemIdInput.value}`;
+  let rowIndex = 0;
+
+  function isTraspaso() {
+    return typeSelect.value === 'traspaso';
   }
 
-  function populateUnits() {
-    const options = ITEM_UNIT_OPTIONS[currentOptionsKey()];
-    unitSelect.innerHTML = '';
+  function toggleWarehouseFields() {
+    const transfer = isTraspaso();
+    singleWarehouseField.style.display = transfer ? 'none' : '';
+    fromWarehouseField.style.display = transfer ? '' : 'none';
+    toWarehouseField.style.display = transfer ? '' : 'none';
+    warehouseSelect.required = !transfer;
+    fromWarehouseSelect.required = transfer;
+    toWarehouseSelect.required = transfer;
+  }
 
+  function searchableItems() {
+    return isTraspaso() ? ITEMS.filter((it) => it.type === 'product') : ITEMS;
+  }
+
+  function rowTemplate(index) {
+    return `
+      <tr class="item-row">
+        <td class="item-number"></td>
+        <td style="position: relative;">
+          <input type="text" class="item-search" placeholder="Buscar por SKU/código o nombre..." autocomplete="off">
+          <input type="hidden" class="item-type-input" name="items[${index}][item_type]">
+          <input type="hidden" class="item-id-input" name="items[${index}][item_id]">
+          <div class="suggestions-list item-suggestions"></div>
+        </td>
+        <td><input type="number" class="qty-input" name="items[${index}][quantity]" min="0.0001" step="any"></td>
+        <td>
+          <select class="unit-select" name="items[${index}][unit_id]">
+            <option value="">—</option>
+          </select>
+        </td>
+        <td><button type="button" class="btn danger remove-row" style="padding: 0.3rem 0.55rem;">✕</button></td>
+      </tr>
+    `;
+  }
+
+  function renumberRows() {
+    document.querySelectorAll('#items-body .item-row').forEach((row, i) => {
+      row.querySelector('.item-number').textContent = i + 1;
+    });
+  }
+
+  function populateUnitsForRow(row) {
+    const typeInput = row.querySelector('.item-type-input');
+    const idInput = row.querySelector('.item-id-input');
+    const unitSelect = row.querySelector('.unit-select');
+    const key = `${typeInput.value}:${idInput.value}`;
+    const options = ITEM_UNIT_OPTIONS[key];
+
+    unitSelect.innerHTML = '';
     if (!options || options.length === 0) {
-      unitSelect.innerHTML = '<option value="">Sin unidades disponibles</option>';
-      unitSelect.required = false;
-      updateHint();
+      unitSelect.innerHTML = '<option value="">—</option>';
       return;
     }
-
     options.forEach((opt) => {
       const el = document.createElement('option');
       el.value = opt.unitId;
       el.textContent = opt.unitName;
-      el.dataset.factor = opt.factor;
       unitSelect.appendChild(el);
     });
-    unitSelect.required = true;
-    updateHint();
   }
 
-  function updateHint() {
-    const options = ITEM_UNIT_OPTIONS[currentOptionsKey()] || [];
-    const selected = options.find((o) => String(o.unitId) === unitSelect.value);
-    const qty = parseFloat(quantityInput.value);
-
-    if (!selected || selected.factor === 1 || !qty) {
-      hint.style.display = 'none';
-      return;
-    }
-
-    const baseUnit = options.find((o) => o.factor === 1);
-    const converted = qty * selected.factor;
-    hint.textContent = `Equivale a ${converted} ${baseUnit ? baseUnit.unitName : ''} en stock.`;
-    hint.style.display = 'block';
-  }
-
-  function toggleWarehouseFields() {
-    const isTransfer = typeSelect.value === 'traspaso';
-
-    singleWarehouseField.style.display = isTransfer ? 'none' : 'grid';
-    transferWarehouseFields.style.display = isTransfer ? 'grid' : 'none';
-
-    warehouseSelect.required = !isTransfer;
-    fromWarehouseSelect.required = isTransfer;
-    toWarehouseSelect.required = isTransfer;
-  }
-
-  function updateTraspasoAvailability() {
-    const isSupply = itemTypeInput.value === 'supply';
-    traspasoOption.disabled = isSupply;
-    if (isSupply && typeSelect.value === 'traspaso') {
-      typeSelect.value = 'in';
-      toggleWarehouseFields();
-    }
-  }
-
-  function renderSuggestions(matches) {
-    itemSuggestions.innerHTML = '';
+  function renderRowSuggestions(row, matches) {
+    const suggestions = row.querySelector('.item-suggestions');
+    suggestions.innerHTML = '';
 
     if (matches.length === 0) {
-      itemSuggestions.style.display = 'none';
+      suggestions.style.display = 'none';
       return;
     }
 
     matches.slice(0, 8).forEach((it) => {
-      const row = document.createElement('div');
-      row.className = 'suggestion-item';
+      const div = document.createElement('div');
+      div.className = 'suggestion-item';
+      const typeLabel = it.type === 'product' ? 'Producto' : 'Suministro';
 
       const main = document.createElement('div');
-      const typeLabel = it.type === 'product' ? 'Producto' : 'Suministro';
       main.textContent = `[${typeLabel}] ${it.sku} — ${it.name} (stock: ${it.quantity})`;
-      row.appendChild(main);
+      div.appendChild(main);
 
       if (it.detail) {
         const detail = document.createElement('div');
         detail.className = 'suggestion-detail';
         detail.textContent = it.detail;
-        row.appendChild(detail);
+        div.appendChild(detail);
       }
 
-      row.addEventListener('mousedown', (e) => {
+      div.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        selectItem(it);
+        row.querySelector('.item-type-input').value = it.type;
+        row.querySelector('.item-id-input').value = it.id;
+        row.querySelector('.item-search').value = `[${typeLabel}] ${it.sku} — ${it.name}`;
+        suggestions.style.display = 'none';
+        populateUnitsForRow(row);
       });
-      itemSuggestions.appendChild(row);
+      suggestions.appendChild(div);
     });
 
-    itemSuggestions.style.display = 'block';
+    suggestions.style.display = 'block';
   }
 
-  function searchItems(query) {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return ITEMS.filter((it) => it.searchText.includes(q));
+  function attachRowListeners(row) {
+    const search = row.querySelector('.item-search');
+    const typeInput = row.querySelector('.item-type-input');
+    const idInput = row.querySelector('.item-id-input');
+
+    search.addEventListener('input', () => {
+      typeInput.value = '';
+      idInput.value = '';
+      populateUnitsForRow(row);
+      const q = search.value.trim().toLowerCase();
+      renderRowSuggestions(row, q ? searchableItems().filter((it) => it.searchText.includes(q)) : []);
+    });
+
+    search.addEventListener('focus', () => {
+      const q = search.value.trim().toLowerCase();
+      if (q) renderRowSuggestions(row, searchableItems().filter((it) => it.searchText.includes(q)));
+    });
+
+    row.querySelector('.remove-row').addEventListener('click', () => {
+      row.remove();
+      renumberRows();
+    });
   }
 
-  function selectItem(it) {
-    itemTypeInput.value = it.type;
-    itemIdInput.value = it.id;
-    const typeLabel = it.type === 'product' ? 'Producto' : 'Suministro';
-    itemSearch.value = `[${typeLabel}] ${it.sku} — ${it.name}`;
-    itemSearch.style.borderColor = '';
-    itemSuggestions.style.display = 'none';
-    updateTraspasoAvailability();
-    populateUnits();
+  function addRow() {
+    const temp = document.createElement('tbody');
+    temp.innerHTML = rowTemplate(rowIndex++);
+    const newRow = temp.firstElementChild;
+    itemsBody.appendChild(newRow);
+    attachRowListeners(newRow);
+    renumberRows();
   }
-
-  itemSearch.addEventListener('input', () => {
-    itemTypeInput.value = '';
-    itemIdInput.value = '';
-    renderSuggestions(searchItems(itemSearch.value));
-    updateTraspasoAvailability();
-    populateUnits();
-  });
-
-  itemSearch.addEventListener('focus', () => {
-    if (itemSearch.value.trim()) {
-      renderSuggestions(searchItems(itemSearch.value));
-    }
-  });
 
   document.addEventListener('click', (e) => {
-    if (e.target !== itemSearch) {
-      itemSuggestions.style.display = 'none';
-    }
+    document.querySelectorAll('.item-suggestions').forEach((s) => {
+      if (!s.parentElement.contains(e.target)) s.style.display = 'none';
+    });
   });
 
-  document.querySelector('form').addEventListener('submit', (e) => {
-    if (!itemTypeInput.value || !itemIdInput.value) {
+  document.getElementById('movement-form').addEventListener('submit', (e) => {
+    const rows = document.querySelectorAll('#items-body .item-row');
+    const withItem = Array.from(rows).filter((row) => row.querySelector('.item-id-input').value);
+    if (withItem.length === 0) {
       e.preventDefault();
-      itemSearch.style.borderColor = 'var(--danger)';
-      itemSearch.focus();
+      alert('Agrega al menos un producto o suministro con su cantidad.');
     }
   });
 
-  unitSelect.addEventListener('change', updateHint);
-  quantityInput.addEventListener('input', updateHint);
-  typeSelect.addEventListener('change', toggleWarehouseFields);
+  addRowBtn.addEventListener('click', addRow);
+  typeSelect.addEventListener('change', () => {
+    toggleWarehouseFields();
+    document.querySelectorAll('#items-body .item-row').forEach((row) => {
+      row.querySelector('.item-suggestions').style.display = 'none';
+    });
+  });
 
-  populateUnits();
   toggleWarehouseFields();
+  addRow();
 </script>
 
 <%- include('../partials/footer') %>

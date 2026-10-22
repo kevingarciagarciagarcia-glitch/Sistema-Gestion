@@ -36,6 +36,16 @@ export const MODULES = [
     ]
   },
   {
+    key: 'personas',
+    label: 'Personas',
+    icon: '👤',
+    description: 'Registro de clientes, proveedores, empleados y accionistas.',
+    homeUrl: '/personas',
+    windows: [
+      { key: 'personas', label: 'Personas', url: '/personas', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] }
+    ]
+  },
+  {
     key: 'administracion',
     label: 'Administración',
     icon: '🛡️',

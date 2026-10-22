@@ -151,8 +151,20 @@ async function initSchema() {
       created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
     );
 
+    CREATE TABLE IF NOT EXISTS movement_batches (
+      id SERIAL PRIMARY KEY,
+      type TEXT NOT NULL CHECK (type IN ('in', 'out', 'traspaso')),
+      warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
+      from_warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
+      to_warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
+      reason TEXT,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+    );
+
     CREATE TABLE IF NOT EXISTS movements (
       id SERIAL PRIMARY KEY,
+      batch_id INTEGER REFERENCES movement_batches(id) ON DELETE CASCADE,
       item_type TEXT NOT NULL DEFAULT 'product' CHECK (item_type IN ('product', 'supply')),
       product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
       supply_id INTEGER REFERENCES supplies(id) ON DELETE CASCADE,
@@ -228,7 +240,35 @@ async function initSchema() {
       unit_price DOUBLE PRECISION NOT NULL DEFAULT 0,
       line_total DOUBLE PRECISION NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS people (
+      id SERIAL PRIMARY KEY,
+      type TEXT NOT NULL CHECK (type IN ('natural', 'juridico', 'sin_ruc')),
+      ruc TEXT,
+      cedula TEXT,
+      name TEXT NOT NULL,
+      commercial_name TEXT,
+      phone TEXT,
+      email TEXT,
+      province TEXT,
+      address TEXT,
+      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+    );
+
+    CREATE TABLE IF NOT EXISTS person_roles (
+      id SERIAL PRIMARY KEY,
+      person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('cliente', 'proveedor', 'empleado', 'accionista')),
+      UNIQUE (person_id, role)
+    );
   `);
+
+  // sales_orders se crea antes que people en este script, así que el vínculo
+  // a la persona (cliente) se agrega aquí, de forma idempotente.
+  await exec('ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES people(id) ON DELETE SET NULL');
+
+  // Para bases ya existentes: movements fue creada antes de que existiera movement_batches.
+  await exec('ALTER TABLE movements ADD COLUMN IF NOT EXISTS batch_id INTEGER REFERENCES movement_batches(id) ON DELETE CASCADE');
 
   const FIXED_CATEGORIES = ['Materia Prima', 'Producto Terminado', 'Producto en Producción', 'Suministros Varios'];
   const existingCategoryNames = (await prepare('SELECT name FROM categories').all()).map((c) => c.name);
