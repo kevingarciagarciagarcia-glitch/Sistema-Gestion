@@ -63,10 +63,24 @@
         <label for="thickness">Espesor</label>
         <input type="number" id="thickness" name="thickness" min="0" step="any" value="<%= product?.thickness ?? '' %>">
       </div>
-      <div class="field">
-        <label for="color">Color</label>
-        <input type="text" id="color" name="color" value="<%= product?.color || '' %>">
-      </div>
+    </div>
+
+    <div class="field" style="margin-bottom: 1.5rem;">
+      <label>Color</label>
+      <% if (colors.length === 0) { %>
+        <p class="muted">Todavía no hay colores en la paleta. Agrega colores desde Inventario → Colores.</p>
+      <% } else { %>
+        <div class="color-palette-picker">
+          <% colors.forEach(c => { %>
+            <% const isSelected = selectedColors.some((sc) => sc.toLowerCase() === c.name.toLowerCase()); %>
+            <label class="color-swatch-option">
+              <input type="checkbox" name="colors" value="<%= c.name %>" <%= isSelected ? 'checked' : '' %>>
+              <span class="color-swatch" style="background: <%= c.hex || '#ccc' %>;"></span>
+              <%= c.name %>
+            </label>
+          <% }) %>
+        </div>
+      <% } %>
     </div>
 
     <h2>Especificaciones</h2>
@@ -144,9 +158,11 @@
       </div>
       <div class="field">
         <label for="printing_colors">Cantidad de colores</label>
-        <input type="number" id="printing_colors" name="printing_colors" min="1" step="1" value="<%= product?.printing_colors ?? '' %>">
+        <input type="number" id="printing_colors" name="printing_colors" min="1" max="<%= maxPrintingColors %>" step="1" value="<%= product?.printing_colors ?? '' %>">
       </div>
     </div>
+
+    <div id="printing-color-slots" class="form-grid" style="margin-bottom: 1.5rem; display: none;"></div>
 
     <h2 style="margin-top: 0.5rem;">⇄ Conversiones</h2>
     <p class="muted" style="margin: -0.25rem 0 1rem;">
@@ -186,19 +202,71 @@
   baseUnitSelect.addEventListener('change', updateUnitSuffixes);
   updateUnitSuffixes();
 
+  const COLORS = <%- JSON.stringify(colors) %>;
+  const EXISTING_PRINTING_COLORS = <%- JSON.stringify(printingColors) %>;
+  const MAX_PRINTING_COLORS = <%= maxPrintingColors %>;
+
   const printingCheckbox = document.getElementById('has_printing');
   const printingFields = document.getElementById('printing-fields');
   const printingType = document.getElementById('printing_type');
   const printingSide = document.getElementById('printing_side');
+  const printingColorsInput = document.getElementById('printing_colors');
+  const printingColorSlots = document.getElementById('printing-color-slots');
+
+  function renderPrintingColorSlots() {
+    const count = Math.min(Math.max(parseInt(printingColorsInput.value, 10) || 0, 0), MAX_PRINTING_COLORS);
+    printingColorSlots.innerHTML = '';
+
+    if (!printingCheckbox.checked || count === 0) {
+      printingColorSlots.style.display = 'none';
+      return;
+    }
+
+    for (let i = 1; i <= count; i++) {
+      const field = document.createElement('div');
+      field.className = 'field';
+
+      const label = document.createElement('label');
+      label.setAttribute('for', `printing_color_${i}`);
+      label.textContent = `Color ${i}`;
+      field.appendChild(label);
+
+      const select = document.createElement('select');
+      select.id = `printing_color_${i}`;
+      select.name = `printing_color_${i}`;
+      select.required = true;
+
+      const emptyOpt = document.createElement('option');
+      emptyOpt.value = '';
+      emptyOpt.textContent = 'Selecciona...';
+      select.appendChild(emptyOpt);
+
+      const existing = EXISTING_PRINTING_COLORS[i - 1] || '';
+      COLORS.forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = c.name;
+        if (existing && existing.toLowerCase() === c.name.toLowerCase()) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      field.appendChild(select);
+      printingColorSlots.appendChild(field);
+    }
+
+    printingColorSlots.style.display = 'grid';
+  }
 
   function togglePrintingFields() {
     const show = printingCheckbox.checked;
     printingFields.style.display = show ? 'grid' : 'none';
     printingType.required = show;
     printingSide.required = show;
+    renderPrintingColorSlots();
   }
 
   printingCheckbox.addEventListener('change', togglePrintingFields);
+  printingColorsInput.addEventListener('input', renderPrintingColorSlots);
   togglePrintingFields();
 
   const fuelleCheckbox = document.getElementById('has_fuelle');

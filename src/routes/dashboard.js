@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
+import { getColorHexMap } from '../colorPalette.js';
 
 const router = Router();
 
@@ -35,7 +36,8 @@ router.get('/', requirePermission('dashboard', 'consultar'), asyncHandler(async 
     totalProducts: total_products,
     totalUnits: total_units,
     lowStock,
-    recentMovements
+    recentMovements,
+    colorHexByName: await getColorHexMap()
   });
 }));
 

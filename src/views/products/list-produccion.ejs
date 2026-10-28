@@ -37,7 +37,7 @@
           <tr>
             <td><%= p.sku %></td>
             <td><%= p.name %></td>
-            <td><%= p.color || '—' %></td>
+            <td><%- include('../partials/color-swatches', { colorText: p.color, colorHexByName }) %></td>
             <td><%= p.width ?? '—' %></td>
             <td><%= p.length ?? '—' %></td>
             <td><%= p.thickness ?? '—' %></td>

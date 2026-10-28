@@ -1,0 +1,15 @@
+<%
+  const __tokens = (typeof colorText === 'string' && colorText.trim())
+    ? colorText.split('/').map((s) => s.trim()).filter(Boolean)
+    : [];
+%>
+<% if (__tokens.length === 0) { %>—<% } else { %>
+  <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+    <% __tokens.forEach((t) => { %>
+      <span style="display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+        <span style="display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); background: <%= (colorHexByName && colorHexByName[t.toLowerCase()]) || '#ccc' %>;"></span>
+        <%= t %>
+      </span>
+    <% }) %>
+  </div>
+<% } %>

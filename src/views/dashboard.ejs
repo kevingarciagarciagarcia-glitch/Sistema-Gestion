@@ -24,7 +24,7 @@
   <% } else { %>
     <table>
       <thead>
-        <tr><th>SKU</th><th>Producto</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Unidad</th></tr>
+        <tr><th>SKU</th><th>Producto</th><th>Categoría</th><th>Medidas</th><th>Color</th><th>Stock</th><th>Mínimo</th><th>Unidad</th></tr>
       </thead>
       <tbody>
         <% lowStock.forEach(p => { %>
@@ -32,6 +32,8 @@
             <td><%= p.sku %></td>
             <td><%= p.name %></td>
             <td><%= p.category_name || '—' %></td>
+            <td><%= (p.width == null && p.length == null) ? '—' : `${p.width ?? '—'}x${p.length ?? '—'}` %></td>
+            <td><%- include('partials/color-swatches', { colorText: p.color, colorHexByName }) %></td>
             <td><span class="badge low"><%= p.quantity %></span></td>
             <td><%= p.min_stock %></td>
             <td><%= p.unit_name || '—' %></td>

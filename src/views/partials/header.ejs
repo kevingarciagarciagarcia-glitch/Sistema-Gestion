@@ -49,6 +49,9 @@
         <% if (hasPermission('bodegas', 'consultar')) { %>
           <a href="/inventario/bodegas" class="<%= currentPage === 'warehouses' ? 'active' : '' %>">Bodegas</a>
         <% } %>
+        <% if (hasPermission('colores', 'consultar')) { %>
+          <a href="/inventario/colores" class="<%= currentPage === 'colors' ? 'active' : '' %>">Colores</a>
+        <% } %>
         <% if (hasPermission('movimientos', 'consultar')) { %>
           <a href="/inventario/movimientos" class="<%= currentPage === 'movements' ? 'active' : '' %>">Movimientos</a>
         <% } %>

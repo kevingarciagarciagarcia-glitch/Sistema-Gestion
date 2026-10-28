@@ -5,11 +5,13 @@ import { hasPermission, requirePermission } from '../auth.js';
 import { buildTemplateWorkbook, importFromBuffer } from '../bulkImport.js';
 import { asyncHandler } from '../asyncHandler.js';
 import { logActivity } from '../activityLog.js';
+import { getColorHexMap } from '../colorPalette.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const PRODUCT_WINDOW_KEYS = ['materia_prima', 'produccion', 'terminado'];
 const MAX_CONVERSIONS = 4;
+const MAX_PRINTING_COLORS = 10;
 const PRINTING_TYPES = ['serigrafia', 'flexografia'];
 const PRINTING_SIDES = ['anverso', 'reverso', 'anverso_reverso'];
 const FUELLE_TYPES = ['lateral', 'fondo', 'superior_fondo'];
@@ -34,6 +36,28 @@ async function getCategoryOptions() {
 
 function getUnits() {
   return db.prepare('SELECT * FROM units ORDER BY name').all();
+}
+
+function getColors() {
+  return db.prepare('SELECT * FROM colors ORDER BY name').all();
+}
+
+function getSelectedColorTokens(product) {
+  if (!product?.color) return [];
+  return product.color.split('/').map((s) => s.trim()).filter(Boolean);
+}
+
+async function getProductPrintingColors(productId) {
+  const rows = await db.prepare('SELECT color_name FROM product_printing_colors WHERE product_id = ? ORDER BY position').all(productId);
+  return rows.map((r) => r.color_name);
+}
+
+async function saveProductPrintingColors(productId, colorNames) {
+  await db.prepare('DELETE FROM product_printing_colors WHERE product_id = ?').run(productId);
+  for (let i = 0; i < colorNames.length; i++) {
+    await db.prepare('INSERT INTO product_printing_colors (product_id, position, color_name) VALUES (?, ?, ?)')
+      .run(productId, i + 1, colorNames[i]);
+  }
 }
 
 async function getFixedCategoryTree(name) {
@@ -79,7 +103,7 @@ function listProductsByFixedCategory(categoryName, view) {
     const importResult = req.session.importResult || null;
     delete req.session.importResult;
 
-    res.render(view, { products, search, measures, color, topCategoryId: top?.id || '', importResult });
+    res.render(view, { products, search, measures, color, topCategoryId: top?.id || '', importResult, colorHexByName: await getColorHexMap() });
   });
 }
 
@@ -199,16 +223,19 @@ function parseProductExtras(body) {
   const hasPrinting = body.has_printing === 'on' || body.has_printing === '1' || body.has_printing === 'true';
   const hasFuelle = body.has_fuelle === 'on' || body.has_fuelle === '1' || body.has_fuelle === 'true';
 
+  const selectedColors = Array.isArray(body.colors) ? body.colors : (body.colors ? [body.colors] : []);
+
   const extras = {
     width: body.width ? Number(body.width) : null,
     length: body.length ? Number(body.length) : null,
     thickness: body.thickness ? Number(body.thickness) : null,
-    color: body.color?.trim() || null,
+    color: selectedColors.length > 0 ? selectedColors.join(' / ') : null,
     has_printing: hasPrinting ? 1 : 0,
     printing_type: null,
     printing_side: null,
     printing_reference: null,
     printing_colors: null,
+    printingColorNames: [],
     has_fuelle: hasFuelle ? 1 : 0,
     fuelle_type: null,
     fuelle_measure_1: null,
@@ -225,10 +252,26 @@ function parseProductExtras(body) {
     if (!PRINTING_SIDES.includes(body.printing_side)) {
       return { error: 'Selecciona el lado de impresión' };
     }
+
+    const colorsCount = body.printing_colors ? Number(body.printing_colors) : null;
+    if (!colorsCount || colorsCount < 1 || colorsCount > MAX_PRINTING_COLORS) {
+      return { error: `Ingresa una cantidad de colores de impresión válida (1 a ${MAX_PRINTING_COLORS})` };
+    }
+
+    const printingColorNames = [];
+    for (let i = 1; i <= colorsCount; i++) {
+      const name = body[`printing_color_${i}`]?.trim();
+      if (!name) {
+        return { error: `Selecciona el Color ${i} de impresión en la paleta` };
+      }
+      printingColorNames.push(name);
+    }
+
     extras.printing_type = body.printing_type;
     extras.printing_side = body.printing_side;
     extras.printing_reference = body.printing_reference?.trim() || null;
-    extras.printing_colors = body.printing_colors ? Number(body.printing_colors) : null;
+    extras.printing_colors = colorsCount;
+    extras.printingColorNames = printingColorNames;
   }
 
   if (hasFuelle) {
@@ -257,7 +300,7 @@ router.get('/', requireProductPermission('consultar'), asyncHandler(async (req, 
     ORDER BY p.name
   `).all(`%${search}%`, `%${search}%`);
 
-  res.render('products/list', { products, search });
+  res.render('products/list', { products, search, colorHexByName: await getColorHexMap() });
 }));
 
 router.get('/materia-prima', requirePermission('materia_prima', 'consultar'), listProductsByFixedCategory('Materia Prima', 'products/list-materia-prima'));
@@ -274,6 +317,10 @@ router.get('/new', requireProductPermission('agregar'), asyncHandler(async (req,
     product: null,
     categoryOptions: await getCategoryOptions(),
     units: await getUnits(),
+    colors: await getColors(),
+    selectedColors: [],
+    printingColors: [],
+    maxPrintingColors: MAX_PRINTING_COLORS,
     conversions: Array(MAX_CONVERSIONS).fill(null),
     preselectCategoryId,
     cancelUrl: await getProductListUrl(preselectCategoryId)
@@ -336,6 +383,7 @@ router.post('/', requireProductPermission('agregar'), asyncHandler(async (req, r
   }
 
   await saveProductConversions(productId, req.body);
+  await saveProductPrintingColors(productId, extras.printingColorNames);
 
   await logActivity(req, `Creó el producto "${sku.trim()} — ${name.trim()}"`);
   res.redirect(await getProductListUrl(category_id));
@@ -349,6 +397,10 @@ router.get('/:id/edit', requireProductPermission('modificar'), asyncHandler(asyn
     product,
     categoryOptions: await getCategoryOptions(),
     units: await getUnits(),
+    colors: await getColors(),
+    selectedColors: getSelectedColorTokens(product),
+    printingColors: await getProductPrintingColors(product.id),
+    maxPrintingColors: MAX_PRINTING_COLORS,
     conversions: await getProductConversions(product.id),
     preselectCategoryId: null,
     cancelUrl: await getProductListUrl(product.category_id)
@@ -407,6 +459,7 @@ router.post('/:id', requireProductPermission('modificar'), asyncHandler(async (r
   }
 
   await saveProductConversions(req.params.id, req.body);
+  await saveProductPrintingColors(req.params.id, extras.printingColorNames);
 
   await logActivity(req, `Editó el producto "${sku.trim()} — ${name.trim()}"`);
   res.redirect(await getProductListUrl(category_id));

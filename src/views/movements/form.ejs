@@ -1,20 +1,20 @@
 <%- include('../partials/header', { currentPage: 'movements' }) %>
 
-<h1>Nuevo movimiento</h1>
+<h1><%= batch ? `Editar hoja de movimiento #${batch.id}` : 'Nuevo movimiento' %></h1>
 
 <% if (query.error) { %>
   <div class="alert error"><%= query.error %></div>
 <% } %>
 
 <div class="card">
-  <form method="post" action="/inventario/movimientos" id="movement-form">
+  <form method="post" action="<%= batch ? `/inventario/movimientos/lote/${batch.id}` : '/inventario/movimientos' %>" id="movement-form">
     <div class="form-grid" style="margin-bottom: 1rem;">
       <div class="field">
         <label for="type">Tipo de movimiento</label>
         <select id="type" name="type" required>
-          <option value="in">Entrada</option>
-          <option value="out">Salida</option>
-          <option value="traspaso" id="traspaso-option">Traspaso entre bodegas</option>
+          <option value="in" <%= batch?.type === 'in' ? 'selected' : '' %>>Entrada</option>
+          <option value="out" <%= batch?.type === 'out' ? 'selected' : '' %>>Salida</option>
+          <option value="traspaso" id="traspaso-option" <%= batch?.type === 'traspaso' ? 'selected' : '' %>>Traspaso entre bodegas</option>
         </select>
       </div>
       <div class="field" id="single-warehouse-field">
@@ -22,7 +22,7 @@
         <select id="warehouse_id" name="warehouse_id">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
-            <option value="<%= w.id %>"><%= w.name %></option>
+            <option value="<%= w.id %>" <%= batch?.warehouse_id === w.id ? 'selected' : '' %>><%= w.name %></option>
           <% }) %>
         </select>
       </div>
@@ -31,7 +31,7 @@
         <select id="from_warehouse_id" name="from_warehouse_id">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
-            <option value="<%= w.id %>"><%= w.name %></option>
+            <option value="<%= w.id %>" <%= batch?.from_warehouse_id === w.id ? 'selected' : '' %>><%= w.name %></option>
           <% }) %>
         </select>
       </div>
@@ -40,20 +40,20 @@
         <select id="to_warehouse_id" name="to_warehouse_id">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
-            <option value="<%= w.id %>"><%= w.name %></option>
+            <option value="<%= w.id %>" <%= batch?.to_warehouse_id === w.id ? 'selected' : '' %>><%= w.name %></option>
           <% }) %>
         </select>
       </div>
       <div class="field">
         <label for="reason">Motivo</label>
-        <input type="text" id="reason" name="reason" placeholder="Ej: compra a proveedor, venta, ajuste...">
+        <input type="text" id="reason" name="reason" placeholder="Ej: compra a proveedor, venta, ajuste..." value="<%= batch?.reason || '' %>">
       </div>
     </div>
 
     <h2>Productos / suministros</h2>
     <p class="muted" style="margin: -0.25rem 0 1rem;">Agrega todos los ítems que quieras incluir en esta misma hoja de movimiento.</p>
 
-    <div style="overflow-x: auto;">
+    <div style="overflow-x: auto;" id="items-table-wrapper">
     <table>
       <thead>
         <tr>
@@ -70,8 +70,8 @@
     <button type="button" id="add-row-btn" class="btn secondary" style="margin-top: 0.75rem;">+ Agregar línea</button>
 
     <div style="margin-top: 1.5rem;">
-      <button class="btn" type="submit">Registrar movimiento</button>
-      <a class="btn secondary" href="/inventario/movimientos">Cancelar</a>
+      <button class="btn" type="submit"><%= batch ? 'Guardar cambios' : 'Registrar movimiento' %></button>
+      <a class="btn secondary" href="<%= batch ? `/inventario/movimientos/lote/${batch.id}` : '/inventario/movimientos' %>">Cancelar</a>
     </div>
   </form>
 </div>
@@ -79,6 +79,7 @@
 <script>
   const ITEM_UNIT_OPTIONS = <%- JSON.stringify(itemUnitOptions) %>;
   const ITEMS = <%- JSON.stringify(items) %>;
+  const EXISTING_LINES = <%- JSON.stringify(existingLines || []) %>;
 
   const typeSelect = document.getElementById('type');
   const traspasoOption = document.getElementById('traspaso-option');
@@ -119,6 +120,7 @@
           <input type="text" class="item-search" placeholder="Buscar por SKU/código o nombre..." autocomplete="off">
           <input type="hidden" class="item-type-input" name="items[${index}][item_type]">
           <input type="hidden" class="item-id-input" name="items[${index}][item_id]">
+          <div class="item-selected-detail muted" style="font-size: 0.8rem; margin-top: 0.25rem;"></div>
           <div class="suggestions-list item-suggestions"></div>
         </td>
         <td><input type="number" class="qty-input" name="items[${index}][quantity]" min="0.0001" step="any"></td>
@@ -158,6 +160,18 @@
     });
   }
 
+  function positionSuggestions(row) {
+    const search = row.querySelector('.item-search');
+    const suggestions = row.querySelector('.item-suggestions');
+    const rect = search.getBoundingClientRect();
+    suggestions.style.position = 'fixed';
+    suggestions.style.top = `${rect.bottom + 4}px`;
+    suggestions.style.left = `${rect.left}px`;
+    suggestions.style.width = `${rect.width}px`;
+    suggestions.style.right = 'auto';
+    suggestions.style.marginTop = '0';
+  }
+
   function renderRowSuggestions(row, matches) {
     const suggestions = row.querySelector('.item-suggestions');
     suggestions.innerHTML = '';
@@ -166,6 +180,8 @@
       suggestions.style.display = 'none';
       return;
     }
+
+    positionSuggestions(row);
 
     matches.slice(0, 8).forEach((it) => {
       const div = document.createElement('div');
@@ -188,6 +204,7 @@
         row.querySelector('.item-type-input').value = it.type;
         row.querySelector('.item-id-input').value = it.id;
         row.querySelector('.item-search').value = `[${typeLabel}] ${it.sku} — ${it.name}`;
+        row.querySelector('.item-selected-detail').textContent = it.detail || '';
         suggestions.style.display = 'none';
         populateUnitsForRow(row);
       });
@@ -205,6 +222,7 @@
     search.addEventListener('input', () => {
       typeInput.value = '';
       idInput.value = '';
+      row.querySelector('.item-selected-detail').textContent = '';
       populateUnitsForRow(row);
       const q = search.value.trim().toLowerCase();
       renderRowSuggestions(row, q ? searchableItems().filter((it) => it.searchText.includes(q)) : []);
@@ -236,6 +254,17 @@
     });
   });
 
+  function repositionVisibleSuggestions() {
+    document.querySelectorAll('#items-body .item-row').forEach((row) => {
+      const suggestions = row.querySelector('.item-suggestions');
+      if (suggestions.style.display === 'block') positionSuggestions(row);
+    });
+  }
+
+  document.getElementById('items-table-wrapper').addEventListener('scroll', repositionVisibleSuggestions);
+  window.addEventListener('scroll', repositionVisibleSuggestions, true);
+  window.addEventListener('resize', repositionVisibleSuggestions);
+
   document.getElementById('movement-form').addEventListener('submit', (e) => {
     const rows = document.querySelectorAll('#items-body .item-row');
     const withItem = Array.from(rows).filter((row) => row.querySelector('.item-id-input').value);
@@ -254,7 +283,22 @@
   });
 
   toggleWarehouseFields();
-  addRow();
+
+  if (EXISTING_LINES.length > 0) {
+    EXISTING_LINES.forEach((line) => {
+      addRow();
+      const row = itemsBody.lastElementChild;
+      row.querySelector('.item-type-input').value = line.itemType;
+      row.querySelector('.item-id-input').value = line.itemId;
+      row.querySelector('.item-search').value = line.label;
+      row.querySelector('.item-selected-detail').textContent = line.detail || '';
+      populateUnitsForRow(row);
+      row.querySelector('.unit-select').value = line.unitId;
+      row.querySelector('.qty-input').value = line.quantity;
+    });
+  } else {
+    addRow();
+  }
 </script>
 
 <%- include('../partials/footer') %>

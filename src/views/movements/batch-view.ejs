@@ -4,9 +4,21 @@
   <h1 style="margin: 0;">Hoja de Movimiento #<%= batch.id %></h1>
   <div style="display: flex; gap: 0.5rem;">
     <button type="button" class="btn secondary" onclick="window.print()">🖨 Imprimir</button>
+    <% if (hasPermission('movimientos', 'modificar')) { %>
+      <a class="btn secondary" href="/inventario/movimientos/lote/<%= batch.id %>/edit">Editar</a>
+    <% } %>
+    <% if (hasPermission('movimientos', 'eliminar')) { %>
+      <form class="inline" method="post" action="/inventario/movimientos/lote/<%= batch.id %>/delete" onsubmit="return confirm('¿Eliminar esta hoja de movimiento? Esto revertirá el stock que afectó.');">
+        <button class="btn danger" type="submit">Eliminar</button>
+      </form>
+    <% } %>
     <a class="btn secondary" href="/inventario/movimientos">Volver</a>
   </div>
 </div>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
 
 <div class="card" id="print-area">
   <div class="form-grid" style="margin-bottom: 1.5rem;">
@@ -33,7 +45,7 @@
   <div style="overflow-x: auto;">
   <table>
     <thead>
-      <tr><th>N°</th><th>Código</th><th>Elemento</th><th>Cantidad</th></tr>
+      <tr><th>N°</th><th>Código</th><th>Elemento</th><th>Medidas</th><th>Color</th><th>Cantidad</th></tr>
     </thead>
     <tbody>
       <% lines.forEach((m, idx) => { %>
@@ -41,6 +53,8 @@
           <td><%= idx + 1 %></td>
           <td><%= m.item_code %></td>
           <td><%= m.item_name %></td>
+          <td><%= (m.width == null && m.length == null) ? '—' : `${m.width ?? '—'}x${m.length ?? '—'}` %></td>
+          <td><%- include('../partials/color-swatches', { colorText: m.color, colorHexByName }) %></td>
           <td>
             <% if (m.input_unit_id && Number(m.input_unit_id) !== Number(m.item_unit_id)) { %>
               <%= m.input_quantity %> <%= m.input_unit_name %> <span class="muted">(= <%= m.quantity %> <%= m.unit_name || '—' %>)</span>

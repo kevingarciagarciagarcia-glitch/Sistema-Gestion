@@ -20,7 +20,8 @@ export const MODULES = [
       { key: 'categorias', label: 'Categorías', url: '/inventario/categorias', actions: ['consultar', 'agregar', 'eliminar'] },
       { key: 'unidades', label: 'Unidades', url: '/inventario/unidades', actions: ['consultar', 'agregar', 'eliminar'] },
       { key: 'bodegas', label: 'Bodegas', url: '/inventario/bodegas', actions: ['consultar', 'agregar', 'eliminar'] },
-      { key: 'movimientos', label: 'Movimientos', url: '/inventario/movimientos', actions: ['consultar', 'agregar'] },
+      { key: 'colores', label: 'Colores', url: '/inventario/colores', actions: ['consultar', 'agregar', 'eliminar'] },
+      { key: 'movimientos', label: 'Movimientos', url: '/inventario/movimientos', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] },
       { key: 'suministros', label: 'Suministros Varios', url: '/inventario/suministros', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] }
     ]
   },

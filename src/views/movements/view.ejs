@@ -45,7 +45,7 @@
   <% if (showDimensions) { %>
     <h2 style="font-size: 1rem; margin-bottom: 0.75rem;">Dimensiones</h2>
     <div class="form-grid" style="margin-bottom: 1.5rem;">
-      <div><span class="muted">Color</span><br><strong><%= movement.color || '—' %></strong></div>
+      <div><span class="muted">Color</span><br><strong><%- include('../partials/color-swatches', { colorText: movement.color, colorHexByName }) %></strong></div>
       <div><span class="muted">Ancho</span><br><strong><%= movement.width ?? '—' %></strong></div>
       <div><span class="muted">Largo</span><br><strong><%= movement.length ?? '—' %></strong></div>
       <div><span class="muted">Espesor</span><br><strong><%= movement.thickness ?? '—' %></strong></div>

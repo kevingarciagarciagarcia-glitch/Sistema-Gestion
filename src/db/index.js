@@ -200,6 +200,20 @@ async function initSchema() {
       target_quantity DOUBLE PRECISION NOT NULL CHECK (target_quantity > 0)
     );
 
+    CREATE TABLE IF NOT EXISTS colors (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      hex TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS product_printing_colors (
+      id SERIAL PRIMARY KEY,
+      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      color_name TEXT NOT NULL,
+      UNIQUE (product_id, position)
+    );
+
     CREATE TABLE IF NOT EXISTS product_warehouse_stock (
       id SERIAL PRIMARY KEY,
       product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -292,6 +306,19 @@ async function initSchema() {
   if (Number(unitCount) === 0) {
     for (const name of ['Unidad', 'Caja', 'Kilogramo', 'Gramo', 'Litro', 'Metro']) {
       await prepare('INSERT INTO units (name) VALUES (?)').run(name);
+    }
+  }
+
+  const { n: colorCount } = await prepare('SELECT COUNT(*) AS n FROM colors').get();
+  if (Number(colorCount) === 0) {
+    const DEFAULT_COLORS = {
+      'Azul': '#2563EB', 'Rojo': '#DC2626', 'Verde': '#16A34A', 'Amarillo': '#FACC15',
+      'Naranja': '#F97316', 'Rosado': '#EC4899', 'Morado': '#7C3AED', 'Lila': '#C4B5FD',
+      'Celeste': '#38BDF8', 'Turqueza': '#14B8A6', 'Fucsia': '#D946EF', 'Blanco': '#FFFFFF',
+      'Negro': '#111827', 'Plata': '#C0C0C0', 'Dorado': '#D4AF37', 'Beige': '#E3D5B8'
+    };
+    for (const [name, hex] of Object.entries(DEFAULT_COLORS)) {
+      await prepare('INSERT INTO colors (name, hex) VALUES (?, ?)').run(name, hex);
     }
   }
 

@@ -1,0 +1,44 @@
+<%- include('../partials/header', { currentPage: 'colors' }) %>
+
+<h1>Paleta de Colores</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <h2>Nuevo color</h2>
+  <form method="post" action="/inventario/colores">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">Nombre</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+      <div class="field">
+        <label for="hex">Color</label>
+        <input type="color" id="hex" name="hex" value="#808080" style="height: 2.4rem; padding: 0.2rem;">
+      </div>
+    </div>
+    <button class="btn" type="submit">Agregar color</button>
+  </form>
+</div>
+
+<div class="card">
+  <% if (colors.length === 0) { %>
+    <p class="empty">Todavía no hay colores en la paleta.</p>
+  <% } else { %>
+    <div class="module-grid">
+      <% colors.forEach(c => { %>
+        <div class="card" style="margin-bottom: 0; display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem;">
+          <span style="display: inline-block; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: <%= c.hex || '#ccc' %>; flex-shrink: 0;"></span>
+          <strong style="flex: 1;"><%= c.name %></strong>
+          <form class="inline" method="post" action="/inventario/colores/<%= c.id %>/delete" onsubmit="return confirm('¿Eliminar este color de la paleta?');">
+            <button class="btn danger" type="submit" style="padding: 0.3rem 0.6rem;">Eliminar</button>
+          </form>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>
