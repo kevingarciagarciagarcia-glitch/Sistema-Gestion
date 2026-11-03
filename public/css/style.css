@@ -239,6 +239,20 @@ th {
   letter-spacing: 0.02em;
 }
 
+th[data-sort] {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+th[data-sort]:hover {
+  color: var(--primary);
+}
+
+.sort-indicator {
+  font-size: 0.75em;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;

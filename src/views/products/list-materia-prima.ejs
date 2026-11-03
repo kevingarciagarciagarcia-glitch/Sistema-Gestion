@@ -23,11 +23,11 @@
     <p class="empty">No hay productos de materia prima registrados.</p>
   <% } else { %>
     <div style="overflow-x: auto;">
-    <table>
+    <table class="sortable-table">
       <thead>
         <tr>
-          <th>SKU</th><th>Nombre</th><th>Código</th><th>Marca</th>
-          <th>Subcategoría</th><th>Unidad</th><th>Presentación</th><th>Stock</th><th>Mínimo</th>
+          <th data-sort>SKU</th><th data-sort>Nombre</th><th data-sort>Código</th><th data-sort>Marca</th>
+          <th data-sort>Subcategoría</th><th data-sort>Unidad</th><th data-sort>Presentación</th><th data-sort>Stock</th><th data-sort>Mínimo</th>
           <th></th>
         </tr>
       </thead>
@@ -63,4 +63,5 @@
   <% } %>
 </div>
 
+<script src="/js/table-sort.js"></script>
 <%- include('../partials/footer') %>

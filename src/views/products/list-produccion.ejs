@@ -23,12 +23,12 @@
     <p class="empty">No hay productos en producción registrados.</p>
   <% } else { %>
     <div style="overflow-x: auto;">
-    <table>
+    <table class="sortable-table">
       <thead>
         <tr>
-          <th>SKU</th><th>Nombre</th>
-          <th>Color</th><th title="Ancho">A</th><th title="Largo">L</th><th title="Espesor">E</th><th>Fuelle</th>
-          <th>Referencia</th><th>Descripción</th><th>Subcategoría</th><th>Unidad</th><th>Stock</th><th>Mínimo</th>
+          <th data-sort>SKU</th><th data-sort>Nombre</th>
+          <th data-sort>Color</th><th data-sort title="Ancho">A</th><th data-sort title="Largo">L</th><th data-sort title="Espesor">E</th><th data-sort>Fuelle</th>
+          <th data-sort>Referencia</th><th data-sort>Descripción</th><th data-sort>Subcategoría</th><th data-sort>Unidad</th><th data-sort>Stock</th><th data-sort>Mínimo</th>
           <th></th>
         </tr>
       </thead>
@@ -74,4 +74,5 @@
   <% } %>
 </div>
 
+<script src="/js/table-sort.js"></script>
 <%- include('../partials/footer') %>
