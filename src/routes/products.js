@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import db from '../db/index.js';
 import { hasPermission, requirePermission } from '../auth.js';
-import { buildTemplateWorkbook, buildExportWorkbook, importFromBuffer } from '../bulkImport.js';
+import { buildTemplateWorkbook, buildExportWorkbook, importFromBuffer, MAX_IMPORT_PRINTING_COLORS } from '../bulkImport.js';
 import { asyncHandler } from '../asyncHandler.js';
 import { logActivity } from '../activityLog.js';
 import { getColorHexMap } from '../colorPalette.js';
@@ -459,6 +459,23 @@ router.post('/export', requireProductPermission('consultar'), asyncHandler(async
     WHERE p.id IN (${placeholders})
     ORDER BY p.name
   `).all(...ids);
+
+  if (type !== 'materia_prima') {
+    const printingRows = await db.prepare(`
+      SELECT product_id, position, color_name FROM product_printing_colors WHERE product_id IN (${placeholders})
+    `).all(...ids);
+    const byProduct = {};
+    printingRows.forEach((r) => {
+      byProduct[r.product_id] = byProduct[r.product_id] || {};
+      byProduct[r.product_id][r.position] = r.color_name;
+    });
+    products.forEach((p) => {
+      const positions = byProduct[p.id] || {};
+      for (let i = 1; i <= MAX_IMPORT_PRINTING_COLORS; i++) {
+        p[`printing_color_${i}`] = positions[i] || '';
+      }
+    });
+  }
 
   const workbook = await buildExportWorkbook(type, products);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

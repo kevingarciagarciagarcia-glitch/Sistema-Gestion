@@ -70,11 +70,12 @@
       <% if (colors.length === 0) { %>
         <p class="muted">Todavía no hay colores en la paleta. Agrega colores desde Inventario → Colores.</p>
       <% } else { %>
+        <% const selectedColor = selectedColors[0] || ''; %>
         <div class="color-palette-picker">
           <% colors.forEach(c => { %>
-            <% const isSelected = selectedColors.some((sc) => sc.toLowerCase() === c.name.toLowerCase()); %>
+            <% const isSelected = selectedColor.toLowerCase() === c.name.toLowerCase(); %>
             <label class="color-swatch-option">
-              <input type="checkbox" name="colors" value="<%= c.name %>" <%= isSelected ? 'checked' : '' %>>
+              <input type="radio" name="colors" value="<%= c.name %>" <%= isSelected ? 'checked' : '' %>>
               <span class="color-swatch" style="background: <%= c.hex || '#ccc' %>;"></span>
               <%= c.name %>
             </label>

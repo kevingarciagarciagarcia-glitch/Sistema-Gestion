@@ -47,6 +47,22 @@ async function findUnitId(unitNameInput) {
   return unit ? unit.id : undefined;
 }
 
+export const MAX_IMPORT_PRINTING_COLORS = 4;
+
+async function findColorName(colorNameInput) {
+  if (!colorNameInput || !colorNameInput.trim()) return null;
+  const colors = await db.prepare('SELECT * FROM colors').all();
+  const match = colors.find((c) => c.name.toLowerCase() === colorNameInput.trim().toLowerCase());
+  return match ? match.name : undefined;
+}
+
+async function saveProductPrintingColors(productId, colorNames) {
+  for (let i = 0; i < colorNames.length; i++) {
+    await db.prepare('INSERT INTO product_printing_colors (product_id, position, color_name) VALUES (?, ?, ?)')
+      .run(productId, i + 1, colorNames[i]);
+  }
+}
+
 function sheetRows(worksheet) {
   const rows = [];
   const headerRow = worksheet.getRow(1);
@@ -79,7 +95,8 @@ const MATERIA_PRIMA_COLUMNS = [...PRODUCT_COMMON_COLUMNS, 'Código', 'Marca', 'P
 const PRINTING_DIMENSION_COLUMNS = [
   'Color', 'Ancho', 'Largo', 'Espesor',
   'Lleva Fuelle', 'Tipo de Fuelle', 'Medida Fuelle 1', 'Medida Fuelle 2',
-  'Lleva Impresión', 'Tipo de Impresión', 'Lado de Impresión', 'Referencia de Impresión', 'Cantidad de Colores'
+  'Lleva Impresión', 'Tipo de Impresión', 'Lado de Impresión', 'Referencia de Impresión', 'Cantidad de Colores',
+  'Color 1', 'Color 2', 'Color 3', 'Color 4'
 ];
 const TERMINADO_COLUMNS = [...PRODUCT_COMMON_COLUMNS, ...PRINTING_DIMENSION_COLUMNS];
 const PRODUCCION_COLUMNS = [...PRODUCT_COMMON_COLUMNS, ...PRINTING_DIMENSION_COLUMNS];
@@ -104,6 +121,7 @@ const INSTRUCTIONS = [
   ['Medida Fuelle 1 / 2', 'Medida Fuelle 2 solo aplica si el Tipo de Fuelle es "Superior y Fondo".'],
   ['Tipo de Impresión', 'Serigrafía / Flexografía'],
   ['Lado de Impresión', 'Anverso / Reverso / Anverso y Reverso'],
+  ['Color 1 / Color 2 / Color 3 / Color 4', 'Obligatorios solo si Lleva Impresión es "Sí": debes llenar tantas columnas como indique Cantidad de Colores (hasta 4). Cada valor debe coincidir exactamente con un color ya existente en Inventario → Colores.'],
   ['SKU / Código', 'Debe ser único; si ya existe, esa fila se rechazará al importar.'],
   ['Filas vacías', 'Se ignoran automáticamente.']
 ];
@@ -147,6 +165,11 @@ function buildExportRow(type, p) {
     return [...common, p.spec_code || '', p.spec_brand || '', p.spec_presentation || ''];
   }
 
+  const printingColorCells = [];
+  for (let i = 1; i <= MAX_IMPORT_PRINTING_COLORS; i++) {
+    printingColorCells.push(p.has_printing ? (p[`printing_color_${i}`] || '') : '');
+  }
+
   return [
     ...common,
     p.color || '',
@@ -161,7 +184,8 @@ function buildExportRow(type, p) {
     p.has_printing ? (PRINTING_TYPE_LABELS[p.printing_type] || '') : '',
     p.has_printing ? (PRINTING_SIDE_LABELS[p.printing_side] || '') : '',
     p.has_printing ? (p.printing_reference || '') : '',
-    p.has_printing ? (p.printing_colors ?? '') : ''
+    p.has_printing ? (p.printing_colors ?? '') : '',
+    ...printingColorCells
   ];
 }
 
@@ -205,7 +229,8 @@ async function parseCommonProductFields(data, fixedCategoryKey) {
   };
 }
 
-function parsePrintingDimensionFields(data) {
+async function parsePrintingDimensionFields(data) {
+  const errors = [];
   const hasFuelle = parseSiNo(data['Lleva Fuelle']);
   const hasPrinting = parseSiNo(data['Lleva Impresión']);
 
@@ -213,7 +238,28 @@ function parsePrintingDimensionFields(data) {
   const printingType = hasPrinting ? reverseLookup(PRINTING_TYPE_LABELS, data['Tipo de Impresión']) : null;
   const printingSide = hasPrinting ? reverseLookup(PRINTING_SIDE_LABELS, data['Lado de Impresión']) : null;
 
+  const printingColorsCount = hasPrinting && data['Cantidad de Colores'] ? Number(data['Cantidad de Colores']) : null;
+  const printingColorNames = [];
+
+  if (hasPrinting && printingColorsCount) {
+    const namedSlots = Math.min(printingColorsCount, MAX_IMPORT_PRINTING_COLORS);
+    for (let i = 1; i <= namedSlots; i++) {
+      const raw = data[`Color ${i}`];
+      if (!raw || !raw.trim()) {
+        errors.push(`Color ${i} es obligatorio porque Lleva Impresión es "Sí" y Cantidad de Colores es ${printingColorsCount}`);
+        continue;
+      }
+      const resolved = await findColorName(raw);
+      if (resolved === undefined) {
+        errors.push(`Color ${i} "${raw}" no existe en la paleta de colores`);
+        continue;
+      }
+      printingColorNames.push(resolved);
+    }
+  }
+
   return {
+    errors,
     width: data['Ancho'] ? Number(data['Ancho']) : null,
     length: data['Largo'] ? Number(data['Largo']) : null,
     thickness: data['Espesor'] ? Number(data['Espesor']) : null,
@@ -226,7 +272,8 @@ function parsePrintingDimensionFields(data) {
     printing_type: hasPrinting && printingType && printingSide ? printingType : null,
     printing_side: hasPrinting && printingType && printingSide ? printingSide : null,
     printing_reference: hasPrinting ? (data['Referencia de Impresión']?.trim() || null) : null,
-    printing_colors: hasPrinting && data['Cantidad de Colores'] ? Number(data['Cantidad de Colores']) : null
+    printing_colors: printingColorsCount,
+    printingColorNames
   };
 }
 
@@ -271,10 +318,18 @@ async function importProducts(buffer, fixedCategoryKey) {
 
     const extra = fixedCategoryKey === 'materia_prima'
       ? { spec_code: data['Código']?.trim() || null, spec_brand: data['Marca']?.trim() || null, spec_presentation: data['Presentación']?.trim() || null }
-      : parsePrintingDimensionFields(data);
+      : await parsePrintingDimensionFields(data);
+
+    if (extra.errors && extra.errors.length > 0) {
+      errors.push(`Fila ${rowNumber}: ${extra.errors.join('; ')}`);
+      continue;
+    }
 
     try {
-      await insertProduct(common, extra);
+      const productId = await insertProduct(common, extra);
+      if (extra.printingColorNames && extra.printingColorNames.length > 0) {
+        await saveProductPrintingColors(productId, extra.printingColorNames);
+      }
       created += 1;
     } catch (err) {
       errors.push(`Fila ${rowNumber}: ya existe un producto con el SKU "${data['SKU']}"`);
