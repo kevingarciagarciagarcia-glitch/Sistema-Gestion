@@ -125,6 +125,60 @@ export async function buildTemplateWorkbook(type) {
   return workbook;
 }
 
+function siNo(value) {
+  return value ? 'Sí' : 'No';
+}
+
+function buildExportRow(type, p) {
+  if (type === 'suministros') {
+    return [
+      p.code, p.description, p.category_name || '', p.unit_name || '',
+      p.min_stock ?? '', p.quantity ?? '', p.associated_machine || '',
+      p.condition || '', p.supplier || '', p.supplier_contact || ''
+    ];
+  }
+
+  const common = [
+    p.sku, p.name, p.category_name || '', p.unit_name || '',
+    p.quantity ?? '', p.min_stock ?? '', p.description || ''
+  ];
+
+  if (type === 'materia_prima') {
+    return [...common, p.spec_code || '', p.spec_brand || '', p.spec_presentation || ''];
+  }
+
+  return [
+    ...common,
+    p.color || '',
+    p.width ?? '',
+    p.length ?? '',
+    p.thickness ?? '',
+    siNo(p.has_fuelle),
+    p.has_fuelle ? (FUELLE_TYPE_LABELS[p.fuelle_type] || '') : '',
+    p.has_fuelle ? (p.fuelle_measure_1 ?? '') : '',
+    p.has_fuelle && p.fuelle_type === 'superior_fondo' ? (p.fuelle_measure_2 ?? '') : '',
+    siNo(p.has_printing),
+    p.has_printing ? (PRINTING_TYPE_LABELS[p.printing_type] || '') : '',
+    p.has_printing ? (PRINTING_SIDE_LABELS[p.printing_side] || '') : '',
+    p.has_printing ? (p.printing_reference || '') : '',
+    p.has_printing ? (p.printing_colors ?? '') : ''
+  ];
+}
+
+export async function buildExportWorkbook(type, items) {
+  const config = TEMPLATE_CONFIG[type];
+  const workbook = new ExcelJS.Workbook();
+
+  const sheet = workbook.addWorksheet(config.title.slice(0, 31));
+  sheet.addRow(config.columns);
+  sheet.getRow(1).font = { bold: true };
+  sheet.columns.forEach((col) => { col.width = 22; });
+
+  items.forEach((item) => sheet.addRow(buildExportRow(type, item)));
+
+  return workbook;
+}
+
 async function parseCommonProductFields(data, fixedCategoryKey) {
   const errors = [];
 

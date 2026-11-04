@@ -22,10 +22,26 @@
   <% if (products.length === 0) { %>
     <p class="empty">No hay productos en producción registrados.</p>
   <% } else { %>
+    <form data-bulk-form method="post" action="/inventario/productos/bulk-delete" style="display:none;">
+      <input type="hidden" name="category_id" value="<%= topCategoryId %>">
+      <input type="hidden" name="redirect_to" data-bulk-redirect value="">
+    </form>
+    <form data-bulk-export-form method="post" action="/inventario/productos/export" style="display:none;">
+      <input type="hidden" name="category_id" value="<%= topCategoryId %>">
+      <input type="hidden" name="redirect_to" data-bulk-redirect value="">
+    </form>
+
+    <div class="bulk-bar" data-bulk-bar>
+      <span><strong data-bulk-count>0</strong> seleccionado(s)</span>
+      <button type="button" class="btn secondary" data-bulk-export>Exportar seleccionados</button>
+      <button type="button" class="btn danger" data-bulk-delete>Eliminar seleccionados</button>
+    </div>
+
     <div style="overflow-x: auto;">
-    <table class="sortable-table">
+    <table class="sortable-table" data-bulk-select>
       <thead>
         <tr>
+          <th class="checkbox-col"><input type="checkbox" data-select-all></th>
           <th data-sort>SKU</th><th data-sort>Nombre</th>
           <th data-sort>Color</th><th data-sort title="Ancho">A</th><th data-sort title="Largo">L</th><th data-sort title="Espesor">E</th><th data-sort>Fuelle</th>
           <th data-sort>Referencia</th><th data-sort>Descripción</th><th data-sort>Subcategoría</th><th data-sort>Unidad</th><th data-sort>Stock</th><th data-sort>Mínimo</th>
@@ -35,6 +51,7 @@
       <tbody>
         <% products.forEach(p => { %>
           <tr>
+            <td class="checkbox-col"><input type="checkbox" class="row-select" value="<%= p.id %>"></td>
             <td><%= p.sku %></td>
             <td><%= p.name %></td>
             <td><%- include('../partials/color-swatches', { colorText: p.color, colorHexByName }) %></td>
@@ -75,4 +92,5 @@
 </div>
 
 <script src="/js/table-sort.js"></script>
+<script src="/js/bulk-select.js"></script>
 <%- include('../partials/footer') %>

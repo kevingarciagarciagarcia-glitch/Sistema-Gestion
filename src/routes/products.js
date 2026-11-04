@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import db from '../db/index.js';
 import { hasPermission, requirePermission } from '../auth.js';
-import { buildTemplateWorkbook, importFromBuffer } from '../bulkImport.js';
+import { buildTemplateWorkbook, buildExportWorkbook, importFromBuffer } from '../bulkImport.js';
 import { asyncHandler } from '../asyncHandler.js';
 import { logActivity } from '../activityLog.js';
 import { getColorHexMap } from '../colorPalette.js';
@@ -387,6 +387,79 @@ router.post('/', requireProductPermission('agregar'), asyncHandler(async (req, r
 
   await logActivity(req, `Creó el producto "${sku.trim()} — ${name.trim()}"`);
   res.redirect(await getProductListUrl(category_id));
+}));
+
+router.post('/bulk-delete', requireProductPermission('eliminar'), asyncHandler(async (req, res) => {
+  const redirectTo = req.body.redirect_to || '/inventario/productos';
+  const rawIds = Array.isArray(req.body.ids) ? req.body.ids : (req.body.ids ? [req.body.ids] : []);
+  const ids = rawIds.map(Number).filter((n) => Number.isInteger(n));
+
+  if (ids.length === 0) {
+    return res.redirect(redirectTo);
+  }
+
+  let categoryFilterIds = null;
+  const topCategoryId = Number(req.body.category_id) || null;
+  if (topCategoryId) {
+    const top = await db.prepare('SELECT * FROM categories WHERE id = ?').get(topCategoryId);
+    if (top) {
+      const subIds = (await db.prepare('SELECT id FROM categories WHERE parent_id = ?').all(top.id)).map((c) => c.id);
+      categoryFilterIds = [top.id, ...subIds];
+    }
+  }
+
+  const placeholders = ids.map(() => '?').join(', ');
+  const conditions = [`id IN (${placeholders})`];
+  const params = [...ids];
+
+  if (categoryFilterIds) {
+    const categoryPlaceholders = categoryFilterIds.map(() => '?').join(', ');
+    conditions.push(`category_id IN (${categoryPlaceholders})`);
+    params.push(...categoryFilterIds);
+  }
+
+  const whereClause = conditions.join(' AND ');
+  const products = await db.prepare(`SELECT * FROM products WHERE ${whereClause}`).all(...params);
+
+  if (products.length > 0) {
+    await db.prepare(`DELETE FROM products WHERE ${whereClause}`).run(...params);
+    const labels = products.map((p) => `${p.sku} — ${p.name}`).join(', ');
+    await logActivity(req, `Eliminó ${products.length} producto(s): ${labels}`);
+  }
+
+  res.redirect(redirectTo);
+}));
+
+router.post('/export', requireProductPermission('consultar'), asyncHandler(async (req, res) => {
+  const redirectTo = req.body.redirect_to || '/inventario/productos';
+  const rawIds = Array.isArray(req.body.ids) ? req.body.ids : (req.body.ids ? [req.body.ids] : []);
+  const ids = rawIds.map(Number).filter((n) => Number.isInteger(n));
+
+  if (ids.length === 0) {
+    return res.redirect(redirectTo);
+  }
+
+  const topCategoryId = Number(req.body.category_id) || null;
+  const type = await getWindowKeyForCategory(topCategoryId);
+  if (!type) {
+    return res.redirect(redirectTo);
+  }
+
+  const placeholders = ids.map(() => '?').join(', ');
+  const products = await db.prepare(`
+    SELECT p.*, c.name AS category_name, u.name AS unit_name
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN units u ON u.id = p.unit_id
+    WHERE p.id IN (${placeholders})
+    ORDER BY p.name
+  `).all(...ids);
+
+  const workbook = await buildExportWorkbook(type, products);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="productos-${type}-exportados.xlsx"`);
+  await workbook.xlsx.write(res);
+  res.end();
 }));
 
 router.get('/:id/edit', requireProductPermission('modificar'), asyncHandler(async (req, res) => {
