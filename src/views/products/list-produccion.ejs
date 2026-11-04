@@ -44,7 +44,7 @@
           <th class="checkbox-col"><input type="checkbox" data-select-all></th>
           <th data-sort>SKU</th><th data-sort>Nombre</th>
           <th data-sort>Color</th><th data-sort title="Ancho">A</th><th data-sort title="Largo">L</th><th data-sort title="Espesor">E</th><th data-sort>Fuelle</th>
-          <th data-sort>Referencia</th><th data-sort>Descripción</th><th data-sort>Subcategoría</th><th data-sort>Unidad</th><th data-sort>Stock</th><th data-sort>Mínimo</th>
+          <th data-sort>Referencia</th><th data-sort>Colores de Impresión</th><th data-sort>Descripción</th><th data-sort>Subcategoría</th><th data-sort>Unidad</th><th data-sort>Stock</th><th data-sort>Mínimo</th>
           <th></th>
         </tr>
       </thead>
@@ -66,6 +66,7 @@
               } %>
             </td>
             <td><%= p.has_printing ? (p.printing_reference || '—') : '—' %></td>
+            <td><%- include('../partials/color-swatches', { colorText: p.has_printing ? p.printing_colors_text : '', colorHexByName }) %></td>
             <td><%= p.description || '—' %></td>
             <td><%= p.category_name || '—' %></td>
             <td><%= p.unit_name || '—' %></td>

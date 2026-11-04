@@ -162,7 +162,7 @@
       </div>
     </div>
 
-    <div id="printing-color-slots" class="form-grid" style="margin-bottom: 1.5rem; display: none;"></div>
+    <div id="printing-color-slots" style="margin-bottom: 1.5rem; display: none;"></div>
 
     <h2 style="margin-top: 0.5rem;">⇄ Conversiones</h2>
     <p class="muted" style="margin: -0.25rem 0 1rem;">
@@ -227,34 +227,48 @@
       field.className = 'field';
 
       const label = document.createElement('label');
-      label.setAttribute('for', `printing_color_${i}`);
       label.textContent = `Color ${i}`;
       field.appendChild(label);
 
-      const select = document.createElement('select');
-      select.id = `printing_color_${i}`;
-      select.name = `printing_color_${i}`;
-      select.required = true;
-
-      const emptyOpt = document.createElement('option');
-      emptyOpt.value = '';
-      emptyOpt.textContent = 'Selecciona...';
-      select.appendChild(emptyOpt);
-
       const existing = EXISTING_PRINTING_COLORS[i - 1] || '';
-      COLORS.forEach((c) => {
-        const opt = document.createElement('option');
-        opt.value = c.name;
-        opt.textContent = c.name;
-        if (existing && existing.toLowerCase() === c.name.toLowerCase()) opt.selected = true;
-        select.appendChild(opt);
-      });
 
-      field.appendChild(select);
+      if (COLORS.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'muted';
+        empty.textContent = 'Todavía no hay colores en la paleta. Agrega colores desde Inventario → Colores.';
+        field.appendChild(empty);
+      } else {
+        const picker = document.createElement('div');
+        picker.className = 'color-palette-picker';
+
+        COLORS.forEach((c) => {
+          const optionLabel = document.createElement('label');
+          optionLabel.className = 'color-swatch-option';
+
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = `printing_color_${i}`;
+          input.value = c.name;
+          input.required = true;
+          if (existing && existing.toLowerCase() === c.name.toLowerCase()) input.checked = true;
+
+          const swatch = document.createElement('span');
+          swatch.className = 'color-swatch';
+          swatch.style.background = c.hex || '#ccc';
+
+          optionLabel.appendChild(input);
+          optionLabel.appendChild(swatch);
+          optionLabel.appendChild(document.createTextNode(c.name));
+          picker.appendChild(optionLabel);
+        });
+
+        field.appendChild(picker);
+      }
+
       printingColorSlots.appendChild(field);
     }
 
-    printingColorSlots.style.display = 'grid';
+    printingColorSlots.style.display = 'block';
   }
 
   function togglePrintingFields() {

@@ -91,10 +91,15 @@ function listProductsByFixedCategory(categoryName, view) {
       }
 
       products = await db.prepare(`
-        SELECT p.*, c.name AS category_name, u.name AS unit_name
+        SELECT p.*, c.name AS category_name, u.name AS unit_name, ppc.printing_colors_text
         FROM products p
         LEFT JOIN categories c ON c.id = p.category_id
         LEFT JOIN units u ON u.id = p.unit_id
+        LEFT JOIN (
+          SELECT product_id, string_agg(color_name, ' / ' ORDER BY position) AS printing_colors_text
+          FROM product_printing_colors
+          GROUP BY product_id
+        ) ppc ON ppc.product_id = p.id
         WHERE ${conditions.join(' AND ')}
         ORDER BY p.name
       `).all(...params);
