@@ -63,7 +63,7 @@ async function saveProductPrintingColors(productId, colorNames) {
   }
 }
 
-function sheetRows(worksheet) {
+export function sheetRows(worksheet) {
   const rows = [];
   const headerRow = worksheet.getRow(1);
   const headers = [];

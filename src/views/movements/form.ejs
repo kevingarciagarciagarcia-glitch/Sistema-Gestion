@@ -6,15 +6,31 @@
   <div class="alert error"><%= query.error %></div>
 <% } %>
 
+<% const initial = batch || prefill || {}; %>
+
+<% if (importWarnings) { %>
+  <div class="alert" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">
+    Se cargaron <strong><%= existingLines.length %></strong> línea(s) desde el archivo. Revisa los datos, corrige lo que sea necesario y confirma con "Registrar movimiento" para guardarlos.
+  </div>
+  <% if (importWarnings.length > 0) { %>
+    <div class="alert error">
+      <strong><%= importWarnings.length %> fila(s) del archivo no se cargaron:</strong>
+      <ul style="margin: 0.25rem 0 0; padding-left: 1.25rem;">
+        <% importWarnings.forEach(w => { %><li><%= w %></li><% }) %>
+      </ul>
+    </div>
+  <% } %>
+<% } %>
+
 <div class="card">
   <form method="post" action="<%= batch ? `/inventario/movimientos/lote/${batch.id}` : '/inventario/movimientos' %>" id="movement-form">
     <div class="form-grid" style="margin-bottom: 1rem;">
       <div class="field">
         <label for="type">Tipo de movimiento</label>
         <select id="type" name="type" required>
-          <option value="in" <%= batch?.type === 'in' ? 'selected' : '' %>>Entrada</option>
-          <option value="out" <%= batch?.type === 'out' ? 'selected' : '' %>>Salida</option>
-          <option value="traspaso" id="traspaso-option" <%= batch?.type === 'traspaso' ? 'selected' : '' %>>Traspaso entre bodegas</option>
+          <option value="in" <%= initial.type === 'in' ? 'selected' : '' %>>Entrada</option>
+          <option value="out" <%= initial.type === 'out' ? 'selected' : '' %>>Salida</option>
+          <option value="traspaso" id="traspaso-option" <%= initial.type === 'traspaso' ? 'selected' : '' %>>Traspaso entre bodegas</option>
         </select>
       </div>
       <div class="field" id="single-warehouse-field">
@@ -22,7 +38,7 @@
         <select id="warehouse_id" name="warehouse_id">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
-            <option value="<%= w.id %>" <%= batch?.warehouse_id === w.id ? 'selected' : '' %>><%= w.name %></option>
+            <option value="<%= w.id %>" <%= String(initial.warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
           <% }) %>
         </select>
       </div>
@@ -31,7 +47,7 @@
         <select id="from_warehouse_id" name="from_warehouse_id">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
-            <option value="<%= w.id %>" <%= batch?.from_warehouse_id === w.id ? 'selected' : '' %>><%= w.name %></option>
+            <option value="<%= w.id %>" <%= String(initial.from_warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
           <% }) %>
         </select>
       </div>
@@ -40,13 +56,13 @@
         <select id="to_warehouse_id" name="to_warehouse_id">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
-            <option value="<%= w.id %>" <%= batch?.to_warehouse_id === w.id ? 'selected' : '' %>><%= w.name %></option>
+            <option value="<%= w.id %>" <%= String(initial.to_warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
           <% }) %>
         </select>
       </div>
       <div class="field">
         <label for="reason">Motivo</label>
-        <input type="text" id="reason" name="reason" placeholder="Ej: compra a proveedor, venta, ajuste..." value="<%= batch?.reason || '' %>">
+        <input type="text" id="reason" name="reason" placeholder="Ej: compra a proveedor, venta, ajuste..." value="<%= initial.reason || '' %>">
       </div>
     </div>
 
@@ -195,7 +211,7 @@
       if (it.detail) {
         const detail = document.createElement('div');
         detail.className = 'suggestion-detail';
-        detail.textContent = it.detail;
+        detail.innerHTML = it.detail;
         div.appendChild(detail);
       }
 
@@ -204,7 +220,7 @@
         row.querySelector('.item-type-input').value = it.type;
         row.querySelector('.item-id-input').value = it.id;
         row.querySelector('.item-search').value = `[${typeLabel}] ${it.sku} — ${it.name}`;
-        row.querySelector('.item-selected-detail').textContent = it.detail || '';
+        row.querySelector('.item-selected-detail').innerHTML = it.detail || '';
         suggestions.style.display = 'none';
         populateUnitsForRow(row);
       });
@@ -291,7 +307,7 @@
       row.querySelector('.item-type-input').value = line.itemType;
       row.querySelector('.item-id-input').value = line.itemId;
       row.querySelector('.item-search').value = line.label;
-      row.querySelector('.item-selected-detail').textContent = line.detail || '';
+      row.querySelector('.item-selected-detail').innerHTML = line.detail || '';
       populateUnitsForRow(row);
       row.querySelector('.unit-select').value = line.unitId;
       row.querySelector('.qty-input').value = line.quantity;

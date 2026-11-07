@@ -45,7 +45,7 @@
   <div style="overflow-x: auto;">
   <table>
     <thead>
-      <tr><th>N°</th><th>Código</th><th>Elemento</th><th>Medidas</th><th>Color</th><th>Cantidad</th></tr>
+      <tr><th>N°</th><th>Código</th><th>Elemento</th><th>Medidas</th><th>Color</th><th>Colores de Impresión</th><th>Cantidad</th></tr>
     </thead>
     <tbody>
       <% lines.forEach((m, idx) => { %>
@@ -55,6 +55,7 @@
           <td><%= m.item_name %></td>
           <td><%= (m.width == null && m.length == null) ? '—' : `${m.width ?? '—'}x${m.length ?? '—'}` %></td>
           <td><%- include('../partials/color-swatches', { colorText: m.color, colorHexByName }) %></td>
+          <td><%- include('../partials/color-swatches', { colorText: m.has_printing ? m.printing_colors_text : '', colorHexByName }) %></td>
           <td>
             <% if (m.input_unit_id && Number(m.input_unit_id) !== Number(m.item_unit_id)) { %>
               <%= m.input_quantity %> <%= m.input_unit_name %> <span class="muted">(= <%= m.quantity %> <%= m.unit_name || '—' %>)</span>

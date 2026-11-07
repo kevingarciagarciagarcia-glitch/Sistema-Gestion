@@ -1,11 +1,15 @@
 import { Router } from 'express';
+import multer from 'multer';
+import ExcelJS from 'exceljs';
 import db from '../db/index.js';
 import { requirePermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
 import { logActivity } from '../activityLog.js';
 import { getColorHexMap } from '../colorPalette.js';
+import { sheetRows } from '../bulkImport.js';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 function round(num) {
   return Math.round(num * 10000) / 10000;
@@ -66,26 +70,41 @@ function getFixedCategoryName(categoryId, categoriesById) {
   return top ? top.name : null;
 }
 
-function buildProductSearchMeta(product, categoriesById) {
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function swatchHtml(name, colorHexByName) {
+  const hex = (colorHexByName && colorHexByName[String(name).toLowerCase()]) || '#ccc';
+  return `<span class="color-swatch" style="width:12px;height:12px;margin-right:2px;vertical-align:middle;background:${hex};" title="${escapeHtml(name)}"></span>`;
+}
+
+function buildProductSearchMeta(product, categoriesById, colorHexByName, printingColorsByProduct) {
   const fixedCategory = getFixedCategoryName(product.category_id, categoriesById);
   const extraFields = [];
   const detailParts = [];
+  const printingColors = (printingColorsByProduct && printingColorsByProduct[product.id]) || [];
 
   if (DIMENSION_CATEGORIES.includes(fixedCategory)) {
     extraFields.push(product.color, product.width, product.length, product.thickness);
     if (product.width !== null && product.width !== undefined && product.length !== null && product.length !== undefined) {
       extraFields.push(`${product.width}x${product.length}`);
     }
-    if (product.color) detailParts.push(`Color: ${product.color}`);
+    if (product.color) detailParts.push(`Color: ${swatchHtml(product.color, colorHexByName)}`);
     if (product.width !== null && product.width !== undefined) detailParts.push(`A: ${product.width}`);
     if (product.length !== null && product.length !== undefined) detailParts.push(`L: ${product.length}`);
     if (product.thickness !== null && product.thickness !== undefined) detailParts.push(`E: ${product.thickness}`);
   }
   if (SPEC_CATEGORIES.includes(fixedCategory)) {
     extraFields.push(product.spec_code, product.spec_brand, product.spec_presentation);
-    if (product.spec_code) detailParts.push(`Código: ${product.spec_code}`);
-    if (product.spec_brand) detailParts.push(`Marca: ${product.spec_brand}`);
-    if (product.spec_presentation) detailParts.push(`Presentación: ${product.spec_presentation}`);
+    if (product.spec_code) detailParts.push(`Código: ${escapeHtml(product.spec_code)}`);
+    if (product.spec_brand) detailParts.push(`Marca: ${escapeHtml(product.spec_brand)}`);
+    if (product.spec_presentation) detailParts.push(`Presentación: ${escapeHtml(product.spec_presentation)}`);
+  }
+
+  if (product.has_printing && printingColors.length > 0) {
+    extraFields.push(...printingColors);
+    detailParts.push(`Impresión: ${printingColors.map((c) => swatchHtml(c, colorHexByName)).join('')}`);
   }
 
   const searchText = [product.sku, product.name, ...extraFields]
@@ -98,9 +117,9 @@ function buildProductSearchMeta(product, categoriesById) {
 
 function buildSupplySearchMeta(supply) {
   const detailParts = [];
-  if (supply.associated_machine) detailParts.push(`Máquina: ${supply.associated_machine}`);
-  if (supply.condition) detailParts.push(`Condición: ${supply.condition}`);
-  if (supply.supplier) detailParts.push(`Proveedor: ${supply.supplier}`);
+  if (supply.associated_machine) detailParts.push(`Máquina: ${escapeHtml(supply.associated_machine)}`);
+  if (supply.condition) detailParts.push(`Condición: ${escapeHtml(supply.condition)}`);
+  if (supply.supplier) detailParts.push(`Proveedor: ${escapeHtml(supply.supplier)}`);
 
   const searchText = [supply.code, supply.description, supply.associated_machine, supply.condition, supply.supplier]
     .filter((v) => v !== null && v !== undefined && v !== '')
@@ -129,8 +148,16 @@ async function getItemsFormData() {
   const warehouses = await db.prepare('SELECT * FROM warehouses ORDER BY name').all();
   const allConversions = await db.prepare('SELECT * FROM product_unit_conversions').all();
   const categories = await db.prepare('SELECT * FROM categories').all();
+  const printingColorRows = await db.prepare('SELECT product_id, position, color_name FROM product_printing_colors ORDER BY position').all();
+  const colorHexByName = await getColorHexMap();
   const unitsById = Object.fromEntries(units.map((u) => [u.id, u]));
   const categoriesById = Object.fromEntries(categories.map((c) => [c.id, c]));
+
+  const printingColorsByProduct = {};
+  printingColorRows.forEach((r) => {
+    if (!printingColorsByProduct[r.product_id]) printingColorsByProduct[r.product_id] = [];
+    printingColorsByProduct[r.product_id].push(r.color_name);
+  });
 
   const conversionsByProduct = {};
   allConversions.forEach((c) => {
@@ -143,7 +170,7 @@ async function getItemsFormData() {
 
   products.forEach((p) => {
     itemUnitOptions[`product:${p.id}`] = getUnitOptionsForProduct(p, conversionsByProduct, unitsById);
-    const { searchText, detail } = buildProductSearchMeta(p, categoriesById);
+    const { searchText, detail } = buildProductSearchMeta(p, categoriesById, colorHexByName, printingColorsByProduct);
     items.push({ type: 'product', id: p.id, sku: p.sku, name: p.name, quantity: p.quantity, searchText, detail });
   });
 
@@ -156,6 +183,96 @@ async function getItemsFormData() {
   });
 
   return { items, warehouses, itemUnitOptions };
+}
+
+async function buildMovementImportTemplate() {
+  const workbook = new ExcelJS.Workbook();
+
+  const sheet = workbook.addWorksheet('Movimiento');
+  sheet.addRow(['SKU o Código', 'Cantidad', 'Unidad']);
+  sheet.getRow(1).font = { bold: true };
+  sheet.columns.forEach((col) => { col.width = 26; });
+
+  const instructions = workbook.addWorksheet('Instrucciones');
+  [
+    ['Columna', 'Valores válidos / notas'],
+    ['SKU o Código', 'SKU del producto o código del suministro, tal como aparece en Inventario. Debe existir previamente.'],
+    ['Cantidad', 'Número mayor a 0.'],
+    ['Unidad', 'Opcional. Si la dejas en blanco se usa la unidad base del producto/suministro. Si la completas, debe coincidir exactamente con una unidad válida para ese ítem (incluye sus conversiones).'],
+    ['Tipo de movimiento, bodega(s) y motivo', 'Se seleccionan en la pantalla de carga, no en este archivo: aplican a todas las filas del archivo.'],
+    ['Filas vacías', 'Se ignoran automáticamente.'],
+    ['Revisión', 'Al cargar el archivo, las líneas NO se guardan de inmediato: se muestran en el formulario para que las revises, corrijas o completes antes de registrar el movimiento.']
+  ].forEach((row) => instructions.addRow(row));
+  instructions.getRow(1).font = { bold: true };
+  instructions.columns = [{ width: 30 }, { width: 70 }];
+
+  return workbook;
+}
+
+async function parseMovementImportFile(buffer, type, items, itemUnitOptions) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.worksheets[0];
+  const rows = sheetRows(sheet);
+
+  const bySku = new Map();
+  items.forEach((it) => {
+    if (it.sku) bySku.set(String(it.sku).trim().toLowerCase(), it);
+  });
+
+  const lines = [];
+  const warnings = [];
+
+  for (const { rowNumber, data } of rows) {
+    const rawSku = data['SKU o Código'];
+    const rawQty = data['Cantidad'];
+    const rawUnit = data['Unidad'];
+
+    const it = bySku.get(String(rawSku || '').trim().toLowerCase());
+    if (!it) {
+      warnings.push(`Fila ${rowNumber}: SKU/Código "${rawSku}" no encontrado, no se cargó`);
+      continue;
+    }
+
+    if (it.type === 'supply' && type === 'traspaso') {
+      warnings.push(`Fila ${rowNumber}: "${it.sku} — ${it.name}" es un suministro y los traspasos no admiten suministros, no se cargó`);
+      continue;
+    }
+
+    const quantity = Number(rawQty);
+    if (!quantity || quantity <= 0) {
+      warnings.push(`Fila ${rowNumber}: cantidad inválida para "${it.sku} — ${it.name}", no se cargó`);
+      continue;
+    }
+
+    const options = itemUnitOptions[`${it.type}:${it.id}`] || [];
+    let unitId = null;
+    if (rawUnit && rawUnit.trim()) {
+      const match = options.find((o) => (o.unitName || '').toLowerCase() === rawUnit.trim().toLowerCase());
+      if (!match) {
+        warnings.push(`Fila ${rowNumber}: unidad "${rawUnit}" no es válida para "${it.sku} — ${it.name}", no se cargó`);
+        continue;
+      }
+      unitId = match.unitId;
+    } else if (options.length > 0) {
+      unitId = options[0].unitId;
+    } else {
+      warnings.push(`Fila ${rowNumber}: "${it.sku} — ${it.name}" no tiene una unidad disponible, no se cargó`);
+      continue;
+    }
+
+    const typeLabel = it.type === 'product' ? 'Producto' : 'Suministro';
+    lines.push({
+      itemType: it.type,
+      itemId: it.id,
+      label: `[${typeLabel}] ${it.sku} — ${it.name}`,
+      detail: it.detail || '',
+      quantity,
+      unitId
+    });
+  }
+
+  return { lines, warnings };
 }
 
 function parseLinesFromBody(body, type) {
@@ -437,7 +554,70 @@ router.get('/', requirePermission('movimientos', 'consultar'), asyncHandler(asyn
 
 router.get('/new', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
   const { items, warehouses, itemUnitOptions } = await getItemsFormData();
-  res.render('movements/form', { items, warehouses, itemUnitOptions, batch: null, existingLines: [] });
+  res.render('movements/form', { items, warehouses, itemUnitOptions, batch: null, existingLines: [], prefill: null, importWarnings: null });
+}));
+
+router.get('/plantilla', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
+  const workbook = await buildMovementImportTemplate();
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="plantilla-movimientos.xlsx"');
+  await workbook.xlsx.write(res);
+  res.end();
+}));
+
+router.get('/importar', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
+  const { warehouses } = await getItemsFormData();
+  res.render('movements/import', { warehouses, error: null, formValues: {} });
+}));
+
+router.post('/importar', requirePermission('movimientos', 'agregar'), upload.single('file'), asyncHandler(async (req, res) => {
+  const { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason } = req.body;
+  const { items, warehouses, itemUnitOptions } = await getItemsFormData();
+
+  if (!['in', 'out', 'traspaso'].includes(type)) {
+    return res.render('movements/import', { warehouses, error: 'Selecciona el tipo de movimiento', formValues: req.body });
+  }
+
+  if (type === 'traspaso') {
+    if (!from_warehouse_id || !to_warehouse_id) {
+      return res.render('movements/import', { warehouses, error: 'Selecciona bodega origen y destino', formValues: req.body });
+    }
+    if (from_warehouse_id === to_warehouse_id) {
+      return res.render('movements/import', { warehouses, error: 'La bodega origen y destino deben ser distintas', formValues: req.body });
+    }
+  } else if (!warehouse_id) {
+    return res.render('movements/import', { warehouses, error: 'Selecciona la bodega', formValues: req.body });
+  }
+
+  if (!req.file) {
+    return res.render('movements/import', { warehouses, error: 'Selecciona un archivo Excel para cargar', formValues: req.body });
+  }
+
+  let parseResult;
+  try {
+    parseResult = await parseMovementImportFile(req.file.buffer, type, items, itemUnitOptions);
+  } catch (err) {
+    return res.render('movements/import', { warehouses, error: 'No se pudo leer el archivo. Verifica que sea un Excel válido con el formato de la plantilla.', formValues: req.body });
+  }
+
+  const { lines: existingLines, warnings } = parseResult;
+
+  if (existingLines.length === 0) {
+    return res.render('movements/import', {
+      warehouses, formValues: req.body,
+      error: warnings.length > 0
+        ? `No se pudo cargar ninguna línea del archivo: ${warnings.join('; ')}`
+        : 'El archivo no tiene filas con datos'
+    });
+  }
+
+  res.render('movements/form', {
+    items, warehouses, itemUnitOptions,
+    batch: null,
+    existingLines,
+    prefill: { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason },
+    importWarnings: warnings
+  });
 }));
 
 router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
@@ -520,13 +700,18 @@ router.get('/lote/:id', requirePermission('movimientos', 'consultar'), asyncHand
            COALESCE(p.sku, s.code) AS item_code,
            COALESCE(p.name, s.description) AS item_name,
            COALESCE(p.unit_id, s.unit_id) AS item_unit_id,
-           p.width, p.length, p.color,
+           p.width, p.length, p.color, p.has_printing, ppc.printing_colors_text,
            baseUnit.name AS unit_name, inputUnit.name AS input_unit_name
     FROM movements m
     LEFT JOIN products p ON p.id = m.product_id
     LEFT JOIN supplies s ON s.id = m.supply_id
     LEFT JOIN units baseUnit ON baseUnit.id = COALESCE(p.unit_id, s.unit_id)
     LEFT JOIN units inputUnit ON inputUnit.id = m.input_unit_id
+    LEFT JOIN (
+      SELECT product_id, string_agg(color_name, ' / ' ORDER BY position) AS printing_colors_text
+      FROM product_printing_colors
+      GROUP BY product_id
+    ) ppc ON ppc.product_id = p.id
     WHERE m.batch_id = ?
     ORDER BY m.id
   `).all(req.params.id);
@@ -540,33 +725,30 @@ router.get('/lote/:id/edit', requirePermission('movimientos', 'modificar'), asyn
 
   const rawLines = await getBatchLines(batch.id);
   const { items, warehouses, itemUnitOptions } = await getItemsFormData();
-  const categories = await db.prepare('SELECT * FROM categories').all();
-  const categoriesById = Object.fromEntries(categories.map((c) => [c.id, c]));
+  const itemsByKey = new Map(items.map((it) => [`${it.type}:${it.id}`, it]));
 
   const existingLines = [];
   for (const line of rawLines) {
     if (line.item_type === 'product') {
-      const product = await db.prepare('SELECT * FROM products WHERE id = ?').get(line.product_id);
-      if (!product) continue;
-      const { detail } = buildProductSearchMeta(product, categoriesById);
+      const it = itemsByKey.get(`product:${line.product_id}`);
+      if (!it) continue;
       existingLines.push({
-        itemType: 'product', itemId: product.id,
-        label: `[Producto] ${product.sku} — ${product.name}`,
-        detail, quantity: line.input_quantity, unitId: line.input_unit_id
+        itemType: 'product', itemId: it.id,
+        label: `[Producto] ${it.sku} — ${it.name}`,
+        detail: it.detail, quantity: line.input_quantity, unitId: line.input_unit_id
       });
     } else {
-      const supply = await db.prepare('SELECT * FROM supplies WHERE id = ?').get(line.supply_id);
-      if (!supply) continue;
-      const { detail } = buildSupplySearchMeta(supply);
+      const it = itemsByKey.get(`supply:${line.supply_id}`);
+      if (!it) continue;
       existingLines.push({
-        itemType: 'supply', itemId: supply.id,
-        label: `[Suministro] ${supply.code} — ${supply.description}`,
-        detail, quantity: line.input_quantity, unitId: line.input_unit_id
+        itemType: 'supply', itemId: it.id,
+        label: `[Suministro] ${it.sku} — ${it.name}`,
+        detail: it.detail, quantity: line.input_quantity, unitId: line.input_unit_id
       });
     }
   }
 
-  res.render('movements/form', { items, warehouses, itemUnitOptions, batch, existingLines });
+  res.render('movements/form', { items, warehouses, itemUnitOptions, batch, existingLines, prefill: null, importWarnings: null });
 }));
 
 router.post('/lote/:id', requirePermission('movimientos', 'modificar'), asyncHandler(async (req, res) => {

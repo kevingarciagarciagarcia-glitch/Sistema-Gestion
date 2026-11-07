@@ -1,0 +1,93 @@
+<%- include('../partials/header', { currentPage: 'movements' }) %>
+
+<h1>Cargar movimiento desde archivo</h1>
+
+<% if (error) { %>
+  <div class="alert error"><%= error %></div>
+<% } %>
+
+<div class="card">
+  <p class="muted" style="margin-top: 0;">
+    Descarga la plantilla, llénala con el SKU/código, la cantidad y (opcionalmente) la unidad de cada ítem,
+    y súbela aquí. Las líneas se cargarán en el formulario de movimiento para que las revises antes de guardar;
+    nada se registra todavía en el inventario.
+  </p>
+  <a class="btn secondary" href="/inventario/movimientos/plantilla" style="margin-bottom: 1.5rem; display: inline-block;">⬇ Descargar plantilla Excel</a>
+
+  <form method="post" action="/inventario/movimientos/importar" enctype="multipart/form-data" id="import-form">
+    <div class="form-grid" style="margin-bottom: 1rem;">
+      <div class="field">
+        <label for="type">Tipo de movimiento</label>
+        <select id="type" name="type" required>
+          <option value="in" <%= formValues.type === 'in' ? 'selected' : '' %>>Entrada</option>
+          <option value="out" <%= formValues.type === 'out' ? 'selected' : '' %>>Salida</option>
+          <option value="traspaso" id="traspaso-option" <%= formValues.type === 'traspaso' ? 'selected' : '' %>>Traspaso entre bodegas</option>
+        </select>
+      </div>
+      <div class="field" id="single-warehouse-field">
+        <label for="warehouse_id">Bodega</label>
+        <select id="warehouse_id" name="warehouse_id">
+          <option value="">Selecciona una bodega</option>
+          <% warehouses.forEach(w => { %>
+            <option value="<%= w.id %>" <%= String(formValues.warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field" id="from-warehouse-field" style="display: none;">
+        <label for="from_warehouse_id">Bodega origen</label>
+        <select id="from_warehouse_id" name="from_warehouse_id">
+          <option value="">Selecciona una bodega</option>
+          <% warehouses.forEach(w => { %>
+            <option value="<%= w.id %>" <%= String(formValues.from_warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field" id="to-warehouse-field" style="display: none;">
+        <label for="to_warehouse_id">Bodega destino</label>
+        <select id="to_warehouse_id" name="to_warehouse_id">
+          <option value="">Selecciona una bodega</option>
+          <% warehouses.forEach(w => { %>
+            <option value="<%= w.id %>" <%= String(formValues.to_warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="reason">Motivo</label>
+        <input type="text" id="reason" name="reason" placeholder="Ej: compra a proveedor, venta, ajuste..." value="<%= formValues.reason || '' %>">
+      </div>
+    </div>
+
+    <div class="field" style="margin-bottom: 1.5rem;">
+      <label for="file">Archivo Excel</label>
+      <input type="file" id="file" name="file" accept=".xlsx" required>
+    </div>
+
+    <button class="btn" type="submit">Cargar y revisar</button>
+    <a class="btn secondary" href="/inventario/movimientos">Cancelar</a>
+  </form>
+</div>
+
+<script>
+  const typeSelect = document.getElementById('type');
+  const singleWarehouseField = document.getElementById('single-warehouse-field');
+  const fromWarehouseField = document.getElementById('from-warehouse-field');
+  const toWarehouseField = document.getElementById('to-warehouse-field');
+  const warehouseSelect = document.getElementById('warehouse_id');
+  const fromWarehouseSelect = document.getElementById('from_warehouse_id');
+  const toWarehouseSelect = document.getElementById('to_warehouse_id');
+
+  function toggleWarehouseFields() {
+    const transfer = typeSelect.value === 'traspaso';
+    singleWarehouseField.style.display = transfer ? 'none' : '';
+    fromWarehouseField.style.display = transfer ? '' : 'none';
+    toWarehouseField.style.display = transfer ? '' : 'none';
+    warehouseSelect.required = !transfer;
+    fromWarehouseSelect.required = transfer;
+    toWarehouseSelect.required = transfer;
+  }
+
+  typeSelect.addEventListener('change', toggleWarehouseFields);
+  toggleWarehouseFields();
+</script>
+
+<%- include('../partials/footer') %>
