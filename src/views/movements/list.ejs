@@ -12,42 +12,66 @@
 </div>
 
 <div class="card">
-  <% if (movements.length === 0) { %>
+  <% if (batches.length === 0) { %>
     <p class="empty">Todavía no hay movimientos registrados.</p>
   <% } else { %>
     <div style="overflow-x: auto;">
-    <table>
+    <table class="batch-summary-table">
       <thead>
-        <tr><th>Fecha</th><th></th><th>Código</th><th>Elemento</th><th>Tipo</th><th>Cantidad</th><th>Bodega</th><th>Motivo</th><th></th></tr>
+        <tr>
+          <th style="width: 2rem;"></th>
+          <th>Fecha y hora</th><th>Ítems</th><th>Tipo</th><th>Bodega</th><th>Motivo</th><th></th>
+        </tr>
       </thead>
       <tbody>
-        <% movements.forEach(m => { %>
-          <tr>
-            <td><%= m.created_at %></td>
-            <td><span class="muted"><%= m.item_type === 'product' ? 'Producto' : 'Suministro' %></span></td>
-            <td><%= m.item_code %></td>
-            <td><%= m.item_name %></td>
+        <% batches.forEach(b => { %>
+          <tr class="batch-row" data-batch-toggle>
+            <td><button type="button" class="batch-toggle-btn" aria-label="Mostrar detalle">▸</button></td>
+            <td><%= b.created_at %></td>
+            <td><%= b.item_count %> ítem<%= b.item_count === 1 ? '' : 's' %></td>
             <td>
-              <span class="badge <%= m.type %>">
-                <%= m.type === 'in' ? 'Entrada' : m.type === 'out' ? 'Salida' : 'Traspaso' %>
+              <span class="badge <%= b.type %>">
+                <%= b.type === 'in' ? 'Entrada' : b.type === 'out' ? 'Salida' : 'Traspaso' %>
               </span>
             </td>
             <td>
-              <% if (m.input_unit_id && Number(m.input_unit_id) !== Number(m.item_unit_id)) { %>
-                <%= m.input_quantity %> <%= m.input_unit_name %> <span class="muted">(= <%= m.quantity %> <%= m.unit_name || '—' %>)</span>
+              <% if (b.type === 'traspaso') { %>
+                <%= b.from_warehouse_name || '—' %> → <%= b.to_warehouse_name || '—' %>
               <% } else { %>
-                <%= m.quantity %> <%= m.unit_name || '—' %>
+                <%= b.warehouse_name || '—' %>
               <% } %>
             </td>
-            <td>
-              <% if (m.type === 'traspaso') { %>
-                <%= m.from_warehouse_name || '—' %> → <%= m.to_warehouse_name || '—' %>
-              <% } else { %>
-                <%= m.warehouse_name || '—' %>
-              <% } %>
+            <td><%= b.reason || '—' %></td>
+            <td class="no-toggle"><a class="btn secondary" href="/inventario/movimientos/lote/<%= b.id %>">Ver / Imprimir</a></td>
+          </tr>
+          <tr class="batch-detail-row" style="display: none;">
+            <td></td>
+            <td colspan="6" style="padding: 0 0 0.75rem;">
+              <table class="batch-detail-table">
+                <thead>
+                  <tr><th>N°</th><th>Código</th><th>Elemento</th><th>Medidas</th><th>Color</th><th>Colores de Impresión</th><th>Cantidad</th></tr>
+                </thead>
+                <tbody>
+                  <% b.lines.forEach((line, lineIdx) => { %>
+                    <tr>
+                      <td><%= lineIdx + 1 %></td>
+                      <td><%= line.item_code %></td>
+                      <td><%= line.item_name %></td>
+                      <td><%= (line.width == null && line.length == null) ? '—' : `${line.width ?? '—'}x${line.length ?? '—'}` %></td>
+                      <td><%- include('../partials/color-swatches', { colorText: line.color, colorHexByName }) %></td>
+                      <td><%- include('../partials/color-swatches', { colorText: line.has_printing ? line.printing_colors_text : '', colorHexByName }) %></td>
+                      <td>
+                        <% if (line.input_unit_id && Number(line.input_unit_id) !== Number(line.item_unit_id)) { %>
+                          <%= line.input_quantity %> <%= line.input_unit_name %> <span class="muted">(= <%= line.quantity %> <%= line.unit_name || '—' %>)</span>
+                        <% } else { %>
+                          <%= line.quantity %> <%= line.unit_name || '—' %>
+                        <% } %>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
             </td>
-            <td><%= m.reason || '—' %></td>
-            <td><a class="btn secondary" href="<%= m.batch_id ? `/inventario/movimientos/lote/${m.batch_id}` : `/inventario/movimientos/${m.id}` %>">Ver / Imprimir</a></td>
           </tr>
         <% }) %>
       </tbody>
@@ -55,5 +79,37 @@
     </div>
   <% } %>
 </div>
+
+<style>
+  .batch-row { cursor: pointer; }
+  .batch-row:hover { background: #f8fafc; }
+  .batch-toggle-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 1.8rem;
+    height: 1.8rem;
+    cursor: pointer;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+  }
+  .batch-row.expanded .batch-toggle-btn { transform: rotate(90deg); }
+  .batch-detail-table { width: 100%; background: var(--bg); border-radius: 6px; }
+  .batch-detail-table th, .batch-detail-table td { padding: 0.45rem 0.6rem; font-size: 0.85rem; }
+  .batch-detail-table th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.72rem; }
+</style>
+
+<script>
+  document.querySelectorAll('.batch-row').forEach((row) => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.no-toggle')) return;
+      const detailRow = row.nextElementSibling;
+      const isHidden = detailRow.style.display === 'none';
+      detailRow.style.display = isHidden ? 'table-row' : 'none';
+      row.classList.toggle('expanded', isHidden);
+      row.querySelector('.batch-toggle-btn').textContent = isHidden ? '▾' : '▸';
+    });
+  });
+</script>
 
 <%- include('../partials/footer') %>

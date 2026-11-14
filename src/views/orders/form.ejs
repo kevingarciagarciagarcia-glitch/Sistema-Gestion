@@ -74,11 +74,11 @@
             </td>
             <td><input type="text" name="items[<%= idx %>][product]" value="<%= it?.product || '' %>" style="width: 140px;"></td>
             <td><input type="text" name="items[<%= idx %>][color]" value="<%= it?.color || '' %>" style="width: 80px;"></td>
-            <td><input type="number" step="any" name="items[<%= idx %>][width]" value="<%= it?.width ?? '' %>" style="width: 65px;"></td>
-            <td><input type="number" step="any" name="items[<%= idx %>][length]" value="<%= it?.length ?? '' %>" style="width: 65px;"></td>
-            <td><input type="number" step="any" name="items[<%= idx %>][thickness]" value="<%= it?.thickness ?? '' %>" style="width: 65px;"></td>
+            <td><input type="number" step="any" class="width-input" name="items[<%= idx %>][width]" value="<%= it?.width ?? '' %>" style="width: 65px;"></td>
+            <td><input type="number" step="any" class="length-input" name="items[<%= idx %>][length]" value="<%= it?.length ?? '' %>" style="width: 65px;"></td>
+            <td><input type="number" step="any" class="thickness-input" name="items[<%= idx %>][thickness]" value="<%= it?.thickness ?? '' %>" style="width: 65px;"></td>
             <td><input type="number" step="any" class="qty-input" name="items[<%= idx %>][quantity]" value="<%= it?.quantity ?? '' %>" style="width: 80px;"></td>
-            <td><input type="number" step="any" name="items[<%= idx %>][total_kg]" value="<%= it?.total_kg ?? '' %>" style="width: 80px;"></td>
+            <td><input type="number" step="any" class="kg-input" name="items[<%= idx %>][total_kg]" value="<%= it?.total_kg ?? '' %>" style="width: 80px;"></td>
             <td><input type="number" step="any" class="price-input" name="items[<%= idx %>][unit_price]" value="<%= it?.unit_price ?? '' %>" style="width: 90px;"></td>
             <td class="line-total">$<%= (it?.line_total || 0).toFixed(2) %></td>
             <td><button type="button" class="btn danger remove-row" style="padding: 0.3rem 0.55rem;">✕</button></td>
@@ -223,11 +223,11 @@
         </td>
         <td><input type="text" name="items[${index}][product]" style="width: 140px;"></td>
         <td><input type="text" name="items[${index}][color]" style="width: 80px;"></td>
-        <td><input type="number" step="any" name="items[${index}][width]" style="width: 65px;"></td>
-        <td><input type="number" step="any" name="items[${index}][length]" style="width: 65px;"></td>
-        <td><input type="number" step="any" name="items[${index}][thickness]" style="width: 65px;"></td>
+        <td><input type="number" step="any" class="width-input" name="items[${index}][width]" style="width: 65px;"></td>
+        <td><input type="number" step="any" class="length-input" name="items[${index}][length]" style="width: 65px;"></td>
+        <td><input type="number" step="any" class="thickness-input" name="items[${index}][thickness]" style="width: 65px;"></td>
         <td><input type="number" step="any" class="qty-input" name="items[${index}][quantity]" style="width: 80px;"></td>
-        <td><input type="number" step="any" name="items[${index}][total_kg]" style="width: 80px;"></td>
+        <td><input type="number" step="any" class="kg-input" name="items[${index}][total_kg]" style="width: 80px;"></td>
         <td><input type="number" step="any" class="price-input" name="items[${index}][unit_price]" style="width: 90px;"></td>
         <td class="line-total">$0.00</td>
         <td><button type="button" class="btn danger remove-row" style="padding: 0.3rem 0.55rem;">✕</button></td>
@@ -258,9 +258,24 @@
     updateSubtotal();
   }
 
+  function updateRowKg(row) {
+    const width = parseFloat(row.querySelector('.width-input').value) || 0;
+    const length = parseFloat(row.querySelector('.length-input').value) || 0;
+    const thickness = parseFloat(row.querySelector('.thickness-input').value) || 0;
+    const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+    const kg = ((width * length * thickness) / 33) * qty;
+    row.querySelector('.kg-input').value = kg ? Math.round(kg * 100) / 100 : '';
+  }
+
   function attachRowListeners(row) {
-    row.querySelector('.qty-input').addEventListener('input', () => updateRowTotal(row));
+    row.querySelector('.qty-input').addEventListener('input', () => {
+      updateRowTotal(row);
+      updateRowKg(row);
+    });
     row.querySelector('.price-input').addEventListener('input', () => updateRowTotal(row));
+    row.querySelector('.width-input').addEventListener('input', () => updateRowKg(row));
+    row.querySelector('.length-input').addEventListener('input', () => updateRowKg(row));
+    row.querySelector('.thickness-input').addEventListener('input', () => updateRowKg(row));
     row.querySelector('.remove-row').addEventListener('click', () => {
       row.remove();
       renumberRows();

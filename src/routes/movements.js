@@ -530,26 +530,53 @@ async function getBatchLines(batchId) {
 }
 
 router.get('/', requirePermission('movimientos', 'consultar'), asyncHandler(async (req, res) => {
-  const movements = await db.prepare(`
-    SELECT m.*,
-           COALESCE(p.sku, s.code) AS item_code,
-           COALESCE(p.name, s.description) AS item_name,
-           COALESCE(p.unit_id, s.unit_id) AS item_unit_id,
-           baseUnit.name AS unit_name, inputUnit.name AS input_unit_name,
-           w.name AS warehouse_name, fromW.name AS from_warehouse_name, toW.name AS to_warehouse_name
-    FROM movements m
-    LEFT JOIN products p ON p.id = m.product_id
-    LEFT JOIN supplies s ON s.id = m.supply_id
-    LEFT JOIN units baseUnit ON baseUnit.id = COALESCE(p.unit_id, s.unit_id)
-    LEFT JOIN units inputUnit ON inputUnit.id = m.input_unit_id
-    LEFT JOIN warehouses w ON w.id = m.warehouse_id
-    LEFT JOIN warehouses fromW ON fromW.id = m.from_warehouse_id
-    LEFT JOIN warehouses toW ON toW.id = m.to_warehouse_id
-    ORDER BY m.created_at DESC, m.id DESC
+  const batches = await db.prepare(`
+    SELECT b.*,
+           w.name AS warehouse_name, fromW.name AS from_warehouse_name, toW.name AS to_warehouse_name,
+           COUNT(m.id)::int AS item_count
+    FROM movement_batches b
+    LEFT JOIN warehouses w ON w.id = b.warehouse_id
+    LEFT JOIN warehouses fromW ON fromW.id = b.from_warehouse_id
+    LEFT JOIN warehouses toW ON toW.id = b.to_warehouse_id
+    LEFT JOIN movements m ON m.batch_id = b.id
+    GROUP BY b.id, w.name, fromW.name, toW.name
+    ORDER BY b.created_at DESC, b.id DESC
     LIMIT 200
   `).all();
 
-  res.render('movements/list', { movements });
+  const batchIds = batches.map((b) => b.id);
+  const lines = batchIds.length > 0
+    ? await db.prepare(`
+        SELECT m.*,
+               COALESCE(p.sku, s.code) AS item_code,
+               COALESCE(p.name, s.description) AS item_name,
+               COALESCE(p.unit_id, s.unit_id) AS item_unit_id,
+               p.width, p.length, p.color, p.has_printing, ppc.printing_colors_text,
+               baseUnit.name AS unit_name, inputUnit.name AS input_unit_name
+        FROM movements m
+        LEFT JOIN products p ON p.id = m.product_id
+        LEFT JOIN supplies s ON s.id = m.supply_id
+        LEFT JOIN units baseUnit ON baseUnit.id = COALESCE(p.unit_id, s.unit_id)
+        LEFT JOIN units inputUnit ON inputUnit.id = m.input_unit_id
+        LEFT JOIN (
+          SELECT product_id, string_agg(color_name, ' / ' ORDER BY position) AS printing_colors_text
+          FROM product_printing_colors
+          GROUP BY product_id
+        ) ppc ON ppc.product_id = p.id
+        WHERE m.batch_id = ANY(?)
+        ORDER BY m.batch_id, m.id
+      `).all(batchIds)
+    : [];
+
+  const linesByBatch = {};
+  lines.forEach((line) => {
+    if (!linesByBatch[line.batch_id]) linesByBatch[line.batch_id] = [];
+    linesByBatch[line.batch_id].push(line);
+  });
+
+  batches.forEach((b) => { b.lines = linesByBatch[b.id] || []; });
+
+  res.render('movements/list', { batches, colorHexByName: await getColorHexMap() });
 }));
 
 router.get('/new', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
