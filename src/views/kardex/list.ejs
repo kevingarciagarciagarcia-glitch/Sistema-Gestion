@@ -1,0 +1,183 @@
+<%- include('../partials/header', { currentPage: 'kardex' }) %>
+
+<h1>Kardex</h1>
+
+<div class="card">
+  <button type="button" class="search-toggle-btn" id="search-toggle">
+    <span id="search-toggle-icon">▾</span> Búsqueda
+  </button>
+
+  <form method="get" action="/inventario/kardex" id="kardex-search" style="margin-top: 1rem;">
+    <div class="form-grid">
+      <div class="field" style="position: relative;">
+        <label for="product_search">Producto</label>
+        <input type="text" id="product_search" placeholder="Buscar por SKU o nombre..." autocomplete="off"
+               value="<%= selectedProduct ? `${selectedProduct.sku} - ${selectedProduct.name}` : '' %>">
+        <input type="hidden" id="product_id" name="product_id" value="<%= filters.product_id %>">
+        <div id="product_suggestions" class="suggestions-list"></div>
+      </div>
+      <div class="field">
+        <label for="warehouse_id">Bodega</label>
+        <select id="warehouse_id" name="warehouse_id">
+          <option value="">Todas</option>
+          <% warehouses.forEach(w => { %>
+            <option value="<%= w.id %>" <%= String(filters.warehouse_id) === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="code">Código Movimiento</label>
+        <input type="text" id="code" name="code" placeholder="Ej: EGR 202611000362" value="<%= filters.code %>">
+      </div>
+      <div class="field">
+        <label for="from">Desde</label>
+        <input type="date" id="from" name="from" value="<%= filters.from %>">
+      </div>
+      <div class="field">
+        <label for="to">Hasta</label>
+        <input type="date" id="to" name="to" value="<%= filters.to %>">
+      </div>
+      <div class="field">
+        <label for="type">Tipo</label>
+        <select id="type" name="type">
+          <option value="" <%= filters.type === '' ? 'selected' : '' %>>Todos</option>
+          <option value="in" <%= filters.type === 'in' ? 'selected' : '' %>>Entrada</option>
+          <option value="out" <%= filters.type === 'out' ? 'selected' : '' %>>Salida</option>
+          <option value="traspaso" <%= filters.type === 'traspaso' ? 'selected' : '' %>>Traspaso</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" type="submit" style="margin-top: 0.5rem;">🔍 Consultar</button>
+  </form>
+</div>
+
+<div class="card">
+  <% if (!selectedProduct) { %>
+    <p class="empty">Selecciona un producto y presiona Consultar para ver su kardex.</p>
+  <% } else if (rows.length === 0) { %>
+    <p class="empty">No hay movimientos para "<%= selectedProduct.sku %> — <%= selectedProduct.name %>" con los filtros seleccionados.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th><th>Código</th><th>Elemento</th><th>Medidas</th><th>Color</th><th>Colores de Impresión</th>
+          <th>Unid</th><th>Entradas</th><th>Salidas</th><th>Stock U</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(r => { %>
+          <tr>
+            <td><%= r.createdAt %></td>
+            <td>
+              <%= selectedProduct.sku %>
+              <br><a class="kardex-code-tag" href="/inventario/movimientos/lote/<%= r.batchId %>">🏷 <%= r.code %></a>
+            </td>
+            <td><%= selectedProduct.name %></td>
+            <td><%= (selectedProduct.width == null && selectedProduct.length == null) ? '—' : `${selectedProduct.width ?? '—'}x${selectedProduct.length ?? '—'}` %></td>
+            <td><%- include('../partials/color-swatches', { colorText: selectedProduct.color, colorHexByName }) %></td>
+            <td><%- include('../partials/color-swatches', { colorText: selectedProduct.has_printing ? selectedProduct.printing_colors_text : '', colorHexByName }) %></td>
+            <td><%= r.unitName %></td>
+            <td><%= r.entrada || 0 %></td>
+            <td><%= r.salida || 0 %></td>
+            <td class="<%= r.stockU < 0 ? 'negative-stock' : '' %>"><%= r.stockU %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } %>
+</div>
+
+<style>
+  .search-toggle-btn {
+    background: transparent;
+    border: none;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    color: var(--text);
+    padding: 0;
+  }
+  .kardex-code-tag {
+    display: inline-block;
+    font-size: 0.78rem;
+    color: var(--primary);
+    text-decoration: none;
+    margin-top: 0.2rem;
+  }
+  .kardex-code-tag:hover { text-decoration: underline; }
+  .negative-stock { color: var(--danger); }
+</style>
+
+<script>
+  const PRODUCTS = <%- JSON.stringify(items) %>;
+  const productSearch = document.getElementById('product_search');
+  const productIdInput = document.getElementById('product_id');
+  const productSuggestions = document.getElementById('product_suggestions');
+
+  function renderProductSuggestions(matches) {
+    productSuggestions.innerHTML = '';
+    if (matches.length === 0) {
+      productSuggestions.style.display = 'none';
+      return;
+    }
+    matches.slice(0, 50).forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'suggestion-item';
+
+      const main = document.createElement('div');
+      main.textContent = `${p.sku} - ${p.name}`;
+      row.appendChild(main);
+
+      if (p.detail) {
+        const detail = document.createElement('div');
+        detail.className = 'suggestion-detail';
+        detail.innerHTML = p.detail;
+        row.appendChild(detail);
+      }
+
+      row.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        productSearch.value = `${p.sku} - ${p.name}`;
+        productIdInput.value = p.id;
+        productSuggestions.style.display = 'none';
+      });
+      productSuggestions.appendChild(row);
+    });
+    productSuggestions.style.display = 'block';
+  }
+
+  productSearch.addEventListener('input', () => {
+    productIdInput.value = '';
+    const q = productSearch.value.trim().toLowerCase();
+    renderProductSuggestions(q ? PRODUCTS.filter((p) => p.searchText.includes(q)) : []);
+  });
+
+  productSearch.addEventListener('focus', () => {
+    const q = productSearch.value.trim().toLowerCase();
+    if (q) renderProductSuggestions(PRODUCTS.filter((p) => p.searchText.includes(q)));
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target !== productSearch) productSuggestions.style.display = 'none';
+  });
+
+  document.getElementById('kardex-search').addEventListener('submit', (e) => {
+    if (!productIdInput.value) {
+      e.preventDefault();
+      alert('Selecciona un producto de la lista de sugerencias.');
+    }
+  });
+
+  const searchToggle = document.getElementById('search-toggle');
+  const searchToggleIcon = document.getElementById('search-toggle-icon');
+  const searchForm = document.getElementById('kardex-search');
+  searchToggle.addEventListener('click', () => {
+    const hidden = searchForm.style.display === 'none';
+    searchForm.style.display = hidden ? '' : 'none';
+    searchToggleIcon.textContent = hidden ? '▾' : '▸';
+  });
+</script>
+
+<%- include('../partials/footer') %>

@@ -55,6 +55,9 @@
         <% if (hasPermission('movimientos', 'consultar')) { %>
           <a href="/inventario/movimientos" class="<%= currentPage === 'movements' ? 'active' : '' %>">Movimientos</a>
         <% } %>
+        <% if (hasPermission('kardex', 'consultar')) { %>
+          <a href="/inventario/kardex" class="<%= currentPage === 'kardex' ? 'active' : '' %>">Kardex</a>
+        <% } %>
       </nav>
       <%- include('userbox') %>
     </aside>

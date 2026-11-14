@@ -22,6 +22,7 @@ export const MODULES = [
       { key: 'bodegas', label: 'Bodegas', url: '/inventario/bodegas', actions: ['consultar', 'agregar', 'eliminar'] },
       { key: 'colores', label: 'Colores', url: '/inventario/colores', actions: ['consultar', 'agregar', 'eliminar'] },
       { key: 'movimientos', label: 'Movimientos', url: '/inventario/movimientos', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] },
+      { key: 'kardex', label: 'Kardex', url: '/inventario/kardex', actions: ['consultar'] },
       { key: 'suministros', label: 'Suministros Varios', url: '/inventario/suministros', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] }
     ]
   },

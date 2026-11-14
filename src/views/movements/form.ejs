@@ -199,7 +199,7 @@
 
     positionSuggestions(row);
 
-    matches.slice(0, 8).forEach((it) => {
+    matches.slice(0, 50).forEach((it) => {
       const div = document.createElement('div');
       div.className = 'suggestion-item';
       const typeLabel = it.type === 'product' ? 'Producto' : 'Suministro';
