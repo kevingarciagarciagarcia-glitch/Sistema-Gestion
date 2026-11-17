@@ -325,7 +325,7 @@ async function resolveLines(executor, lines, type, { warehouse_id, from_warehous
       return { error: 'Uno de los elementos no fue encontrado' };
     }
 
-    const label = item.name || item.description;
+    const label = `${item.sku || item.code} — ${item.name || item.description}`;
 
     const factor = line.item_type === 'product'
       ? await findConversionFactor(executor, item, line.unit_id)
@@ -397,7 +397,7 @@ async function resolveLineQuantity(executor, line) {
 
   if (!item) return { error: 'Uno de los elementos no fue encontrado' };
 
-  const label = item.name || item.description;
+  const label = `${item.sku || item.code} — ${item.name || item.description}`;
   const factor = line.item_type === 'product'
     ? await findConversionFactor(executor, item, line.unit_id)
     : (Number(line.unit_id) === Number(item.unit_id) ? 1 : null);
@@ -502,8 +502,8 @@ async function canReverseLine(executor, line) {
   const itemType = line.item_type;
   const itemId = line.product_id || line.supply_id;
   const itemTable = itemType === 'product' ? 'products' : 'supplies';
-  const item = await executor.prepare(`SELECT name, description FROM ${itemTable} WHERE id = ?`).get(itemId);
-  const label = item?.name || item?.description || `#${itemId}`;
+  const item = await executor.prepare(`SELECT * FROM ${itemTable} WHERE id = ?`).get(itemId);
+  const label = item ? `${item.sku || item.code} — ${item.name || item.description}` : `#${itemId}`;
 
   if (line.type === 'traspaso') {
     const stockAtTo = await getWarehouseStock(executor, itemType, itemId, line.to_warehouse_id);
@@ -841,7 +841,14 @@ router.post('/lote/:id', requirePermission('movimientos', 'modificar'), asyncHan
       const newEntry = newByKey.get(key);
       const itemType = oldEntry?.itemType || key.split(':')[0];
       const itemId = oldEntry?.itemId || newEntry?.item.id;
-      const label = newEntry?.item ? (newEntry.item.name || newEntry.item.description) : `#${itemId}`;
+      let label = `#${itemId}`;
+      if (newEntry?.item) {
+        label = `${newEntry.item.sku || newEntry.item.code} — ${newEntry.item.name || newEntry.item.description}`;
+      } else {
+        const itemTable = itemType === 'product' ? 'products' : 'supplies';
+        const existingItem = await tx.prepare(`SELECT * FROM ${itemTable} WHERE id = ?`).get(itemId);
+        if (existingItem) label = `${existingItem.sku || existingItem.code} — ${existingItem.name || existingItem.description}`;
+      }
 
       if (sameContext) {
         const result = await applyLineDelta(tx, type, newContext, itemType, itemId, label, oldEntry?.qty || 0, newEntry?.convertedQty || 0);
