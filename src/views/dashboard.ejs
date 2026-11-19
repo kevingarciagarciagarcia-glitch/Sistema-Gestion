@@ -4,12 +4,8 @@
 
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="label">Productos</div>
-    <div class="value"><%= totalProducts %></div>
-  </div>
-  <div class="stat-card">
-    <div class="label">Unidades en stock</div>
-    <div class="value"><%= totalUnits %></div>
+    <div class="label">Productos terminados</div>
+    <div class="value"><%= totalTerminado %></div>
   </div>
   <div class="stat-card">
     <div class="label">Bajo stock</div>
@@ -18,48 +14,134 @@
 </div>
 
 <div class="card">
-  <h2>Productos con bajo stock</h2>
+  <h2 style="margin-top:0;">⚠ Alerta de bajo stock mínimo</h2>
   <% if (lowStock.length === 0) { %>
     <p class="empty">No hay productos por debajo del stock mínimo.</p>
   <% } else { %>
-    <table>
-      <thead>
-        <tr><th>SKU</th><th>Producto</th><th>Categoría</th><th>Medidas</th><th>Color</th><th>Colores de Impresión</th><th>Stock</th><th>Mínimo</th><th>Unidad</th></tr>
-      </thead>
-      <tbody>
-        <% lowStock.forEach(p => { %>
-          <tr>
-            <td><%= p.sku %></td>
-            <td><%= p.name %></td>
-            <td><%= p.category_name || '—' %></td>
-            <td><%= (p.width == null && p.length == null) ? '—' : `${p.width ?? '—'}x${p.length ?? '—'}` %></td>
-            <td><%- include('partials/color-swatches', { colorText: p.color, colorHexByName }) %></td>
-            <td><%- include('partials/color-swatches', { colorText: p.has_printing ? p.printing_colors_text : '', colorHexByName }) %></td>
-            <td><span class="badge low"><%= p.quantity %></span></td>
-            <td><%= p.min_stock %></td>
-            <td><%= p.unit_name || '—' %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+    <div class="scroll-box">
+      <table>
+        <thead>
+          <tr><th>SKU</th><th>Producto</th><th>Categoría</th><th>Medida</th><th>Color</th><th>Color Impresión</th><th>Stock actual</th><th>Mínimo</th><th>Déficit</th><th>Unidad</th><th>Severidad</th></tr>
+        </thead>
+        <tbody>
+          <% lowStock.forEach(p => {
+            const ratio = p.min_stock > 0 ? p.quantity / p.min_stock : (p.quantity <= 0 ? 0 : 1);
+            const isCritical = ratio <= 0.5;
+          %>
+            <tr>
+              <td><%= p.sku %></td>
+              <td><%= p.name %></td>
+              <td><%= p.category_name || '—' %></td>
+              <td><%= (p.width == null && p.length == null) ? '—' : `${p.width ?? '—'}x${p.length ?? '—'}` %></td>
+              <td><%- include('partials/color-swatches', { colorText: p.color, colorHexByName }) %></td>
+              <td><%- include('partials/color-swatches', { colorText: p.has_printing ? p.printing_colors_text : '', colorHexByName }) %></td>
+              <td><span class="badge <%= isCritical ? 'critical' : 'low' %>"><%= p.quantity %></span></td>
+              <td><%= p.min_stock %></td>
+              <td class="<%= isCritical ? 'deficit-critical' : 'deficit-low' %>"><%= p.deficit > 0 ? `-${p.deficit}` : 0 %></td>
+              <td><%= p.unit_name || '—' %></td>
+              <td><span class="badge <%= isCritical ? 'critical' : 'low' %>"><%= isCritical ? 'Crítico' : 'Bajo' %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
 </div>
 
 <div class="card">
-  <h2>Últimos movimientos</h2>
+  <h2 style="margin-top:0;">🏭 Rotación de Producto Terminado</h2>
+
+  <form method="get" action="/inventario" class="form-grid" style="margin-bottom: 1.25rem; align-items: end;">
+    <div class="field" style="margin-bottom: 0;">
+      <label for="desde">Desde</label>
+      <input type="date" id="desde" name="desde" value="<%= rotation.fromDate %>">
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="hasta">Hasta</label>
+      <input type="date" id="hasta" name="hasta" value="<%= rotation.toDate %>">
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <button class="btn" type="submit">Filtrar</button>
+    </div>
+  </form>
+
+  <div class="rotation-grid">
+    <div>
+      <h3>Top 10 · Mayor salida</h3>
+      <% if (rotation.topMostOut.length === 0) { %>
+        <p class="empty">No hay salidas de producto terminado en el período seleccionado.</p>
+      <% } else { %>
+        <div class="scroll-box rotation-scroll">
+          <% rotation.topMostOut.forEach((r, idx) => { %>
+            <div class="rotation-item">
+              <div class="rotation-rank">#<%= idx + 1 %></div>
+              <div class="rotation-info">
+                <div class="rotation-name"><%= r.name %></div>
+                <div class="rotation-sku"><%= r.sku %></div>
+                <div class="rotation-specs">
+                  <span><%= (r.width == null && r.length == null) ? '—' : `${r.width ?? '—'}x${r.length ?? '—'}` %></span>
+                  <%- include('partials/color-swatches', { colorText: r.color, colorHexByName }) %>
+                  <%- include('partials/color-swatches', { colorText: r.has_printing ? r.printing_colors_text : '', colorHexByName }) %>
+                </div>
+                <div class="rotation-bar-track">
+                  <div class="rotation-bar-fill out" style="width: <%= Math.round((r.total_salida / rotation.maxMostOut) * 100) %>%;"></div>
+                </div>
+              </div>
+              <div class="rotation-qty"><%= r.total_salida %> <span class="muted"><%= r.unit_name || '—' %></span></div>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+
+    <div>
+      <h3>Top 10 · Menor salida</h3>
+      <% if (rotation.topLeastOut.length === 0) { %>
+        <p class="empty">No hay productos terminados registrados.</p>
+      <% } else { %>
+        <div class="scroll-box rotation-scroll">
+          <% rotation.topLeastOut.forEach((r, idx) => { %>
+            <div class="rotation-item">
+              <div class="rotation-rank">#<%= idx + 1 %></div>
+              <div class="rotation-info">
+                <div class="rotation-name"><%= r.name %></div>
+                <div class="rotation-sku"><%= r.sku %></div>
+                <div class="rotation-specs">
+                  <span><%= (r.width == null && r.length == null) ? '—' : `${r.width ?? '—'}x${r.length ?? '—'}` %></span>
+                  <%- include('partials/color-swatches', { colorText: r.color, colorHexByName }) %>
+                  <%- include('partials/color-swatches', { colorText: r.has_printing ? r.printing_colors_text : '', colorHexByName }) %>
+                </div>
+                <div class="rotation-bar-track">
+                  <div class="rotation-bar-fill least" style="width: <%= Math.round((r.total_salida / rotation.maxLeastOut) * 100) %>%;"></div>
+                </div>
+              </div>
+              <div class="rotation-qty"><%= r.total_salida %> <span class="muted"><%= r.unit_name || '—' %></span></div>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0;">Últimos movimientos</h2>
   <% if (recentMovements.length === 0) { %>
     <p class="empty">Todavía no hay movimientos registrados.</p>
   <% } else { %>
     <table>
       <thead>
-        <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th></tr>
+        <tr><th>Fecha</th><th>Producto</th><th>Medida</th><th>Color</th><th>Color Impresión</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th></tr>
       </thead>
       <tbody>
         <% recentMovements.forEach(m => { %>
           <tr>
             <td><%= m.created_at %></td>
             <td><%= m.product_name %></td>
-            <td><span class="badge <%= m.type %>"><%= m.type === 'in' ? 'Entrada' : 'Salida' %></span></td>
+            <td><%= (m.width == null && m.length == null) ? '—' : `${m.width ?? '—'}x${m.length ?? '—'}` %></td>
+            <td><%- include('partials/color-swatches', { colorText: m.color, colorHexByName }) %></td>
+            <td><%- include('partials/color-swatches', { colorText: m.has_printing ? m.printing_colors_text : '', colorHexByName }) %></td>
+            <td><span class="badge <%= m.type %>"><%= m.type === 'in' ? 'Entrada' : m.type === 'out' ? 'Salida' : 'Traspaso' %></span></td>
             <td><%= m.quantity %></td>
             <td><%= m.reason || '—' %></td>
           </tr>
@@ -68,5 +150,74 @@
     </table>
   <% } %>
 </div>
+
+<style>
+  .scroll-box { max-height: 420px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .scroll-box table { margin: 0; }
+  .scroll-box thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
+  .scroll-box tbody tr:last-child td { border-bottom: none; }
+
+  .badge.critical { background: #fee2e2; color: var(--danger); }
+  .deficit-critical { color: var(--danger); font-weight: 600; }
+  .deficit-low { color: var(--warning); font-weight: 600; }
+
+  .rotation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .rotation-grid h3 { margin: 0 0 0.75rem; font-size: 1rem; }
+
+  .rotation-scroll { padding: 0.5rem 0.75rem; }
+
+  .rotation-item {
+    display: grid;
+    grid-template-columns: 2rem 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+    padding: 0.5rem 0;
+  }
+
+  .rotation-item + .rotation-item { border-top: 1px solid var(--border); }
+
+  .rotation-rank { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+
+  .rotation-info { min-width: 0; }
+
+  .rotation-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rotation-sku { font-size: 0.75rem; color: var(--muted); }
+
+  .rotation-specs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+  }
+
+  .rotation-bar-track {
+    background: var(--bg);
+    border-radius: 999px;
+    height: 6px;
+    margin-top: 0.3rem;
+    overflow: hidden;
+  }
+
+  .rotation-bar-fill { height: 100%; border-radius: 999px; }
+  .rotation-bar-fill.out { background: var(--primary); }
+  .rotation-bar-fill.least { background: var(--muted); }
+
+  .rotation-qty { font-size: 0.85rem; font-weight: 600; white-space: nowrap; text-align: right; }
+</style>
 
 <%- include('partials/footer') %>
