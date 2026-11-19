@@ -105,7 +105,7 @@ async function initSchema() {
       full_name TEXT,
       profile_id INTEGER REFERENCES profiles(id) ON DELETE SET NULL,
       is_active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
     );
 
     CREATE TABLE IF NOT EXISTS products (
@@ -133,7 +133,7 @@ async function initSchema() {
       spec_code TEXT,
       spec_brand TEXT,
       spec_presentation TEXT,
-      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
     );
 
     CREATE TABLE IF NOT EXISTS supplies (
@@ -148,7 +148,7 @@ async function initSchema() {
       condition TEXT,
       supplier TEXT,
       supplier_contact TEXT,
-      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
     );
 
     CREATE TABLE IF NOT EXISTS movement_batches (
@@ -159,7 +159,7 @@ async function initSchema() {
       to_warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
       reason TEXT,
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
     );
 
     CREATE TABLE IF NOT EXISTS movements (
@@ -177,7 +177,7 @@ async function initSchema() {
       to_warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
       reason TEXT,
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS'),
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS'),
       CHECK (
         (item_type = 'product' AND product_id IS NOT NULL AND supply_id IS NULL) OR
         (item_type = 'supply' AND supply_id IS NOT NULL AND product_id IS NULL)
@@ -236,7 +236,7 @@ async function initSchema() {
       city TEXT,
       branch TEXT,
       seller_id INTEGER REFERENCES sellers(id) ON DELETE SET NULL,
-      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
     );
 
     CREATE TABLE IF NOT EXISTS sales_order_items (
@@ -266,7 +266,7 @@ async function initSchema() {
       email TEXT,
       province TEXT,
       address TEXT,
-      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
     );
 
     CREATE TABLE IF NOT EXISTS person_roles (
@@ -281,7 +281,7 @@ async function initSchema() {
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       username TEXT,
       description TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
     );
   `);
 
@@ -291,6 +291,14 @@ async function initSchema() {
 
   // Para bases ya existentes: movements fue creada antes de que existiera movement_batches.
   await exec('ALTER TABLE movements ADD COLUMN IF NOT EXISTS batch_id INTEGER REFERENCES movement_batches(id) ON DELETE CASCADE');
+
+  // Para bases ya existentes: created_at se guardaba en UTC. Se ajusta el DEFAULT a la
+  // zona horaria de Ecuador (America/Guayaquil, UTC-5) para que los nuevos registros
+  // reflejen la hora local correcta.
+  const TIMEZONE_TABLES = ['users', 'products', 'supplies', 'movement_batches', 'movements', 'sales_orders', 'people', 'activity_log'];
+  for (const table of TIMEZONE_TABLES) {
+    await exec(`ALTER TABLE ${table} ALTER COLUMN created_at SET DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`);
+  }
 
   const FIXED_CATEGORIES = ['Materia Prima', 'Producto Terminado', 'Producto en Producción', 'Suministros Varios'];
   const existingCategoryNames = (await prepare('SELECT name FROM categories').all()).map((c) => c.name);

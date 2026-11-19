@@ -58,11 +58,13 @@
 
 <style>
   @media print {
-    @page { size: portrait; margin: 8mm; }
+    @page { size: A4 portrait; margin: 8mm; }
+    html, body { width: 100%; }
     header.topbar, .toolbar, .sidebar, .sidebar-open-btn { display: none !important; }
-    main { padding: 0; max-width: none; }
-    .card div[style*="overflow"] { overflow: visible !important; height: auto !important; max-height: none !important; }
-    .card table { table-layout: fixed; width: 100%; }
+    main { padding: 0; max-width: none; width: 100%; }
+    .card { width: 100%; }
+    .card div[style*="overflow"] { overflow: visible !important; height: auto !important; max-height: none !important; width: 100% !important; }
+    .card table { table-layout: fixed; width: 100% !important; }
     .card table th, .card table td { padding: 0.2rem 0.25rem; font-size: 0.6rem; word-break: break-word; overflow-wrap: break-word; }
     .card table th:nth-child(1), .card table td:nth-child(1) { width: 3%; }
     .card table th:nth-child(5), .card table td:nth-child(5),

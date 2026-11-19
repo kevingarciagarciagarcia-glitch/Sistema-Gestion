@@ -42,7 +42,7 @@
       <thead>
         <tr>
           <th class="checkbox-col"><input type="checkbox" data-select-all></th>
-          <th data-sort>SKU</th><th data-sort>Nombre</th><th data-sort>Código</th><th data-sort>Marca</th>
+          <th data-sort>SKU</th><th data-sort>Nombre</th><th data-sort>Color</th><th data-sort>Código</th><th data-sort>Marca</th>
           <th data-sort>Subcategoría</th><th data-sort>Unidad</th><th data-sort>Presentación</th><th data-sort>Stock</th><th data-sort>Mínimo</th>
           <th></th>
         </tr>
@@ -53,6 +53,7 @@
             <td class="checkbox-col"><input type="checkbox" class="row-select" value="<%= p.id %>"></td>
             <td><%= p.sku %></td>
             <td><%= p.name %></td>
+            <td><%- include('../partials/color-swatches', { colorText: p.color, colorHexByName }) %></td>
             <td><%= p.spec_code || '—' %></td>
             <td><%= p.spec_brand || '—' %></td>
             <td><%= p.category_name || '—' %></td>

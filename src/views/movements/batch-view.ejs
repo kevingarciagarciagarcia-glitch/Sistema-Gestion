@@ -89,12 +89,13 @@
 
 <style>
   @media print {
-    @page { size: portrait; margin: 10mm; }
+    @page { size: A4 portrait; margin: 8mm; }
+    html, body { width: 100%; }
     header.topbar, .toolbar, .sidebar, .sidebar-open-btn { display: none !important; }
-    main { padding: 0; max-width: none; }
-    #print-area { border: none; }
-    #print-area div[style*="overflow"] { overflow: visible !important; height: auto !important; max-height: none !important; }
-    #print-area table { table-layout: fixed; width: 100%; }
+    main { padding: 0; max-width: none; width: 100%; }
+    #print-area { border: none; width: 100%; }
+    #print-area div[style*="overflow"] { overflow: visible !important; height: auto !important; max-height: none !important; width: 100% !important; }
+    #print-area table { table-layout: fixed; width: 100% !important; }
     #print-area table th, #print-area table td { padding: 0.25rem 0.3rem; font-size: 0.65rem; word-break: break-word; overflow-wrap: break-word; }
     #print-area table th:nth-child(1), #print-area table td:nth-child(1) { width: 4%; }
     #print-area table th:nth-child(4), #print-area table td:nth-child(4) { width: 10%; }

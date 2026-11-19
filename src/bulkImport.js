@@ -91,7 +91,7 @@ export function sheetRows(worksheet) {
 }
 
 const PRODUCT_COMMON_COLUMNS = ['SKU', 'Nombre', 'Subcategoría', 'Unidad de Medida', 'Cantidad en Stock', 'Stock Mínimo', 'Descripción'];
-const MATERIA_PRIMA_COLUMNS = [...PRODUCT_COMMON_COLUMNS, 'Código', 'Marca', 'Presentación'];
+const MATERIA_PRIMA_COLUMNS = [...PRODUCT_COMMON_COLUMNS, 'Color', 'Código', 'Marca', 'Presentación'];
 const PRINTING_DIMENSION_COLUMNS = [
   'Color', 'Ancho', 'Largo', 'Espesor',
   'Lleva Fuelle', 'Tipo de Fuelle', 'Medida Fuelle 1', 'Medida Fuelle 2',
@@ -116,6 +116,7 @@ const INSTRUCTIONS = [
   ['Columna', 'Valores válidos / notas'],
   ['Subcategoría', 'Debe coincidir exactamente con el nombre de la categoría principal o una subcategoría ya existente en esta pestaña. Déjala en blanco para no asignar ninguna.'],
   ['Unidad de Medida', 'Debe coincidir exactamente con el nombre de una unidad ya existente (ver pestaña "Unidades").'],
+  ['Color', 'Opcional. Debe coincidir exactamente con un color ya existente en Inventario → Colores para que se muestre correctamente; déjalo en blanco para no asignar ninguno.'],
   ['Lleva Fuelle / Lleva Impresión', 'Escribe "Sí" o "No".'],
   ['Tipo de Fuelle', 'Lateral / Fondo / Superior y Fondo'],
   ['Medida Fuelle 1 / 2', 'Medida Fuelle 2 solo aplica si el Tipo de Fuelle es "Superior y Fondo".'],
@@ -162,7 +163,7 @@ function buildExportRow(type, p) {
   ];
 
   if (type === 'materia_prima') {
-    return [...common, p.spec_code || '', p.spec_brand || '', p.spec_presentation || ''];
+    return [...common, p.color || '', p.spec_code || '', p.spec_brand || '', p.spec_presentation || ''];
   }
 
   const printingColorCells = [];
@@ -317,7 +318,12 @@ async function importProducts(buffer, fixedCategoryKey) {
     }
 
     const extra = fixedCategoryKey === 'materia_prima'
-      ? { spec_code: data['Código']?.trim() || null, spec_brand: data['Marca']?.trim() || null, spec_presentation: data['Presentación']?.trim() || null }
+      ? {
+          color: data['Color']?.trim() || null,
+          spec_code: data['Código']?.trim() || null,
+          spec_brand: data['Marca']?.trim() || null,
+          spec_presentation: data['Presentación']?.trim() || null
+        }
       : await parsePrintingDimensionFields(data);
 
     if (extra.errors && extra.errors.length > 0) {
