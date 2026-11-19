@@ -1,5 +1,7 @@
 <% if (typeof importResult !== 'undefined' && importResult) { %>
-  <div class="alert <%= importResult.errors.length > 0 ? 'error' : '' %>" style="<%= importResult.errors.length === 0 ? 'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;' : '' %>">
+  <div class="alert <%= importResult.errors.length > 0 ? 'error' : '' %>" style="position: relative; padding-right: 2.5rem; <%= importResult.errors.length === 0 ? 'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;' : '' %>">
+    <button type="button" onclick="this.parentElement.remove()" aria-label="Cerrar"
+      style="position: absolute; top: 0.5rem; right: 0.6rem; background: none; border: none; font-size: 1.1rem; line-height: 1; cursor: pointer; color: inherit; opacity: 0.7;">✕</button>
     <strong><%= importResult.created %></strong> elemento(s) importado(s) correctamente.
     <% if (importResult.errors.length > 0) { %>
       <div style="margin-top: 0.5rem;">
