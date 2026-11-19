@@ -552,6 +552,7 @@ router.get('/', requirePermission('movimientos', 'consultar'), asyncHandler(asyn
                COALESCE(p.name, s.description) AS item_name,
                COALESCE(p.unit_id, s.unit_id) AS item_unit_id,
                p.width, p.length, p.color, p.has_printing, ppc.printing_colors_text,
+               p.spec_code, p.spec_brand,
                baseUnit.name AS unit_name, inputUnit.name AS input_unit_name
         FROM movements m
         LEFT JOIN products p ON p.id = m.product_id

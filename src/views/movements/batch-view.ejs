@@ -40,6 +40,14 @@
       </strong>
     </div>
     <div><span class="muted">Motivo</span><br><strong><%= batch.reason || '—' %></strong></div>
+    <div>
+      <span class="muted">Tipo de Carga</span><br>
+      <strong>
+        <% if (batch.load_type === 'materia_prima') { %>Materia Prima<%
+          } else if (batch.load_type === 'terminado') { %>Producto Terminado<%
+          } else { %>—<% } %>
+      </strong>
+    </div>
   </div>
 
   <% const isMateriaPrima = batch.load_type === 'materia_prima'; %>

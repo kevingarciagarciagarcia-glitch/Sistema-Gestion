@@ -56,26 +56,47 @@
           <tr class="batch-detail-row" style="display: none;">
             <td></td>
             <td colspan="7" style="padding: 0 0 0.75rem;">
+              <% const isBatchMateriaPrima = b.load_type === 'materia_prima'; %>
               <table class="batch-detail-table">
                 <thead>
-                  <tr><th>N°</th><th>Código</th><th>Elemento</th><th>Medidas</th><th>Color</th><th>Colores de Impresión</th><th>Cantidad</th></tr>
+                  <% if (isBatchMateriaPrima) { %>
+                    <tr><th>N°</th><th>SKU</th><th>Nombre</th><th>Color</th><th>Marca</th><th>Código</th><th>Cantidad</th></tr>
+                  <% } else { %>
+                    <tr><th>N°</th><th>Código</th><th>Elemento</th><th>Medidas</th><th>Color</th><th>Colores de Impresión</th><th>Cantidad</th></tr>
+                  <% } %>
                 </thead>
                 <tbody>
                   <% b.lines.forEach((line, lineIdx) => { %>
                     <tr>
-                      <td><%= lineIdx + 1 %></td>
-                      <td><%= line.item_code %></td>
-                      <td><%= line.item_name %></td>
-                      <td><%= (line.width == null && line.length == null) ? '—' : `${line.width ?? '—'}x${line.length ?? '—'}` %></td>
-                      <td><%- include('../partials/color-swatches', { colorText: line.color, colorHexByName }) %></td>
-                      <td><%- include('../partials/color-swatches', { colorText: line.has_printing ? line.printing_colors_text : '', colorHexByName }) %></td>
-                      <td>
-                        <% if (line.input_unit_id && Number(line.input_unit_id) !== Number(line.item_unit_id)) { %>
-                          <%= line.input_quantity %> <%= line.input_unit_name %> <span class="muted">(= <%= line.quantity %> <%= line.unit_name || '—' %>)</span>
-                        <% } else { %>
-                          <%= line.quantity %> <%= line.unit_name || '—' %>
-                        <% } %>
-                      </td>
+                      <% if (isBatchMateriaPrima) { %>
+                        <td><%= lineIdx + 1 %></td>
+                        <td><%= line.item_code %></td>
+                        <td><%= line.item_name %></td>
+                        <td><%- include('../partials/color-swatches', { colorText: line.color, colorHexByName }) %></td>
+                        <td><%= line.spec_brand || '—' %></td>
+                        <td><%= line.spec_code || '—' %></td>
+                        <td>
+                          <% if (line.input_unit_id && Number(line.input_unit_id) !== Number(line.item_unit_id)) { %>
+                            <%= line.input_quantity %> <%= line.input_unit_name %> <span class="muted">(= <%= line.quantity %> <%= line.unit_name || '—' %>)</span>
+                          <% } else { %>
+                            <%= line.quantity %> <%= line.unit_name || '—' %>
+                          <% } %>
+                        </td>
+                      <% } else { %>
+                        <td><%= lineIdx + 1 %></td>
+                        <td><%= line.item_code %></td>
+                        <td><%= line.item_name %></td>
+                        <td><%= (line.width == null && line.length == null) ? '—' : `${line.width ?? '—'}x${line.length ?? '—'}` %></td>
+                        <td><%- include('../partials/color-swatches', { colorText: line.color, colorHexByName }) %></td>
+                        <td><%- include('../partials/color-swatches', { colorText: line.has_printing ? line.printing_colors_text : '', colorHexByName }) %></td>
+                        <td>
+                          <% if (line.input_unit_id && Number(line.input_unit_id) !== Number(line.item_unit_id)) { %>
+                            <%= line.input_quantity %> <%= line.input_unit_name %> <span class="muted">(= <%= line.quantity %> <%= line.unit_name || '—' %>)</span>
+                          <% } else { %>
+                            <%= line.quantity %> <%= line.unit_name || '—' %>
+                          <% } %>
+                        </td>
+                      <% } %>
                     </tr>
                   <% }) %>
                 </tbody>
