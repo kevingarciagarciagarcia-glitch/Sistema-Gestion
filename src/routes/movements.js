@@ -96,10 +96,10 @@ function buildProductSearchMeta(product, categoriesById, colorHexByName, printin
     if (product.thickness !== null && product.thickness !== undefined) detailParts.push(`E: ${product.thickness}`);
   }
   if (SPEC_CATEGORIES.includes(fixedCategory)) {
-    extraFields.push(product.spec_code, product.spec_brand, product.spec_presentation);
+    extraFields.push(product.spec_code, product.spec_brand, product.color);
     if (product.spec_code) detailParts.push(`Código: ${escapeHtml(product.spec_code)}`);
     if (product.spec_brand) detailParts.push(`Marca: ${escapeHtml(product.spec_brand)}`);
-    if (product.spec_presentation) detailParts.push(`Presentación: ${escapeHtml(product.spec_presentation)}`);
+    if (product.color) detailParts.push(`Color: ${swatchHtml(product.color, colorHexByName)}`);
   }
 
   if (product.has_printing && printingColors.length > 0) {
@@ -648,10 +648,14 @@ router.post('/importar', requirePermission('movimientos', 'agregar'), upload.sin
 }));
 
 router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
-  const { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason } = req.body;
+  const { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason, load_type } = req.body;
 
   if (!['in', 'out', 'traspaso'].includes(type)) {
     return res.redirect('/inventario/movimientos/new?error=Selecciona el tipo de movimiento');
+  }
+
+  if (!['materia_prima', 'terminado'].includes(load_type)) {
+    return res.redirect('/inventario/movimientos/new?error=Selecciona el tipo de carga');
   }
 
   const { lines, error: parseError } = parseLinesFromBody(req.body, type);
@@ -680,8 +684,8 @@ router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async
   const tx = await db.beginTransaction();
   try {
     const batchInfo = await tx.prepare(`
-      INSERT INTO movement_batches (type, warehouse_id, from_warehouse_id, to_warehouse_id, reason, created_by)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO movement_batches (type, warehouse_id, from_warehouse_id, to_warehouse_id, reason, load_type, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING id
     `).run(
       type,
@@ -689,6 +693,7 @@ router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async
       type === 'traspaso' ? from_warehouse_id : null,
       type === 'traspaso' ? to_warehouse_id : null,
       reason?.trim() || null,
+      load_type,
       req.user.id
     );
     batchId = batchInfo.lastInsertRowid;
@@ -728,6 +733,7 @@ router.get('/lote/:id', requirePermission('movimientos', 'consultar'), asyncHand
            COALESCE(p.name, s.description) AS item_name,
            COALESCE(p.unit_id, s.unit_id) AS item_unit_id,
            p.width, p.length, p.color, p.has_printing, ppc.printing_colors_text,
+           p.spec_code, p.spec_brand,
            baseUnit.name AS unit_name, inputUnit.name AS input_unit_name
     FROM movements m
     LEFT JOIN products p ON p.id = m.product_id
@@ -782,11 +788,15 @@ router.post('/lote/:id', requirePermission('movimientos', 'modificar'), asyncHan
   const batch = await db.prepare('SELECT * FROM movement_batches WHERE id = ?').get(req.params.id);
   if (!batch) return res.redirect('/inventario/movimientos');
 
-  const { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason } = req.body;
+  const { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason, load_type } = req.body;
   const editUrl = `/inventario/movimientos/lote/${batch.id}/edit`;
 
   if (!['in', 'out', 'traspaso'].includes(type)) {
     return res.redirect(`${editUrl}?error=Selecciona el tipo de movimiento`);
+  }
+
+  if (!['materia_prima', 'terminado'].includes(load_type)) {
+    return res.redirect(`${editUrl}?error=Selecciona el tipo de carga`);
   }
 
   const { lines, error: parseError } = parseLinesFromBody(req.body, type);
@@ -868,7 +878,7 @@ router.post('/lote/:id', requirePermission('movimientos', 'modificar'), asyncHan
     await tx.prepare('DELETE FROM movements WHERE batch_id = ?').run(batch.id);
     await tx.prepare(`
       UPDATE movement_batches
-      SET type = ?, warehouse_id = ?, from_warehouse_id = ?, to_warehouse_id = ?, reason = ?
+      SET type = ?, warehouse_id = ?, from_warehouse_id = ?, to_warehouse_id = ?, reason = ?, load_type = ?
       WHERE id = ?
     `).run(
       type,
@@ -876,6 +886,7 @@ router.post('/lote/:id', requirePermission('movimientos', 'modificar'), asyncHan
       type === 'traspaso' ? from_warehouse_id : null,
       type === 'traspaso' ? to_warehouse_id : null,
       reason?.trim() || null,
+      load_type,
       batch.id
     );
 

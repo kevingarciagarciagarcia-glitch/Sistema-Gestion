@@ -158,6 +158,7 @@ async function initSchema() {
       from_warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
       to_warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
       reason TEXT,
+      load_type TEXT CHECK (load_type IN ('materia_prima', 'terminado')),
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
     );
@@ -291,6 +292,9 @@ async function initSchema() {
 
   // Para bases ya existentes: movements fue creada antes de que existiera movement_batches.
   await exec('ALTER TABLE movements ADD COLUMN IF NOT EXISTS batch_id INTEGER REFERENCES movement_batches(id) ON DELETE CASCADE');
+
+  // Para bases ya existentes: movement_batches fue creada antes de que existiera load_type.
+  await exec("ALTER TABLE movement_batches ADD COLUMN IF NOT EXISTS load_type TEXT CHECK (load_type IN ('materia_prima', 'terminado'))");
 
   // Para bases ya existentes: created_at se guardaba en UTC. Se ajusta el DEFAULT a la
   // zona horaria de Ecuador (America/Guayaquil, UTC-5) para que los nuevos registros

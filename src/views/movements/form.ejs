@@ -33,6 +33,14 @@
           <option value="traspaso" id="traspaso-option" <%= initial.type === 'traspaso' ? 'selected' : '' %>>Traspaso entre bodegas</option>
         </select>
       </div>
+      <div class="field">
+        <label for="load_type">Tipo de Carga</label>
+        <select id="load_type" name="load_type" required>
+          <option value="" disabled <%= !initial.load_type ? 'selected' : '' %>>Selecciona...</option>
+          <option value="materia_prima" <%= initial.load_type === 'materia_prima' ? 'selected' : '' %>>Materia Prima</option>
+          <option value="terminado" <%= initial.load_type === 'terminado' ? 'selected' : '' %>>Producto Terminado</option>
+        </select>
+      </div>
       <div class="field" id="single-warehouse-field">
         <label for="warehouse_id">Bodega</label>
         <select id="warehouse_id" name="warehouse_id">

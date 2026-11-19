@@ -20,7 +20,7 @@
       <thead>
         <tr>
           <th style="width: 2rem;"></th>
-          <th>Fecha y hora</th><th>Ítems</th><th>Tipo</th><th>Bodega</th><th>Motivo</th><th></th>
+          <th>Fecha y hora</th><th>Ítems</th><th>Tipo</th><th>Tipo de Carga</th><th>Bodega</th><th>Motivo</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -35,6 +35,15 @@
               </span>
             </td>
             <td>
+              <% if (b.load_type === 'materia_prima') { %>
+                <span class="badge">Materia Prima</span>
+              <% } else if (b.load_type === 'terminado') { %>
+                <span class="badge">Producto Terminado</span>
+              <% } else { %>
+                <span class="muted">—</span>
+              <% } %>
+            </td>
+            <td>
               <% if (b.type === 'traspaso') { %>
                 <%= b.from_warehouse_name || '—' %> → <%= b.to_warehouse_name || '—' %>
               <% } else { %>
@@ -46,7 +55,7 @@
           </tr>
           <tr class="batch-detail-row" style="display: none;">
             <td></td>
-            <td colspan="6" style="padding: 0 0 0.75rem;">
+            <td colspan="7" style="padding: 0 0 0.75rem;">
               <table class="batch-detail-table">
                 <thead>
                   <tr><th>N°</th><th>Código</th><th>Elemento</th><th>Medidas</th><th>Color</th><th>Colores de Impresión</th><th>Cantidad</th></tr>
