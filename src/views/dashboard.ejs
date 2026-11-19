@@ -129,6 +129,7 @@
   <% if (recentMovements.length === 0) { %>
     <p class="empty">Todavía no hay movimientos registrados.</p>
   <% } else { %>
+    <div style="overflow-x: auto;">
     <table>
       <thead>
         <tr><th>Fecha</th><th>Producto</th><th>Medida</th><th>Color</th><th>Color Impresión</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th></tr>
@@ -136,24 +137,26 @@
       <tbody>
         <% recentMovements.forEach(m => { %>
           <tr>
-            <td><%= m.created_at %></td>
-            <td><%= m.product_name %></td>
-            <td><%= (m.width == null && m.length == null) ? '—' : `${m.width ?? '—'}x${m.length ?? '—'}` %></td>
-            <td><%- include('partials/color-swatches', { colorText: m.color, colorHexByName }) %></td>
-            <td><%- include('partials/color-swatches', { colorText: m.has_printing ? m.printing_colors_text : '', colorHexByName }) %></td>
-            <td><span class="badge <%= m.type %>"><%= m.type === 'in' ? 'Entrada' : m.type === 'out' ? 'Salida' : 'Traspaso' %></span></td>
-            <td><%= m.quantity %></td>
-            <td><%= m.reason || '—' %></td>
+            <td style="white-space: nowrap;"><%= m.created_at %></td>
+            <td style="white-space: nowrap;"><%= m.product_name %></td>
+            <td style="white-space: nowrap;"><%= (m.width == null && m.length == null) ? '—' : `${m.width ?? '—'}x${m.length ?? '—'}` %></td>
+            <td style="white-space: nowrap;"><%- include('partials/color-swatches', { colorText: m.color, colorHexByName }) %></td>
+            <td style="white-space: nowrap;"><%- include('partials/color-swatches', { colorText: m.has_printing ? m.printing_colors_text : '', colorHexByName }) %></td>
+            <td style="white-space: nowrap;"><span class="badge <%= m.type %>"><%= m.type === 'in' ? 'Entrada' : m.type === 'out' ? 'Salida' : 'Traspaso' %></span></td>
+            <td style="white-space: nowrap;"><%= m.quantity %></td>
+            <td style="white-space: nowrap;"><%= m.reason || '—' %></td>
           </tr>
         <% }) %>
       </tbody>
     </table>
+    </div>
   <% } %>
 </div>
 
 <style>
-  .scroll-box { max-height: 420px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .scroll-box { max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
   .scroll-box table { margin: 0; }
+  .scroll-box table th, .scroll-box table td { white-space: nowrap; }
   .scroll-box thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
   .scroll-box tbody tr:last-child td { border-bottom: none; }
 
