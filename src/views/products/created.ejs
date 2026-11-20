@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Producto creado</title>
+</head>
+<body>
+  <script>
+    window.parent.postMessage({
+      type: 'product-created',
+      id: <%= product.id %>,
+      sku: <%- JSON.stringify(product.sku) %>,
+      name: <%- JSON.stringify(product.name) %>,
+      color: <%- JSON.stringify(product.color) %>,
+      width: <%- JSON.stringify(product.width) %>,
+      length: <%- JSON.stringify(product.length) %>,
+      thickness: <%- JSON.stringify(product.thickness) %>,
+      has_fuelle: <%= product.has_fuelle %>,
+      fuelle_type: <%- JSON.stringify(product.fuelle_type) %>,
+      fuelle_measure_1: <%- JSON.stringify(product.fuelle_measure_1) %>,
+      fuelle_measure_2: <%- JSON.stringify(product.fuelle_measure_2) %>,
+      has_printing: <%= product.has_printing %>,
+      printing_type: <%- JSON.stringify(product.printing_type) %>,
+      printing_side: <%- JSON.stringify(product.printing_side) %>,
+      printing_colors: <%- JSON.stringify(product.printing_colors) %>,
+      printing_colors_text: <%- JSON.stringify(printingColorsText) %>,
+      printing_reference: <%- JSON.stringify(product.printing_reference) %>
+    }, window.location.origin);
+  </script>
+  <p style="font-family: system-ui, sans-serif; padding: 2rem; text-align: center; color: #16a34a;">Producto creado correctamente.</p>
+</body>
+</html>

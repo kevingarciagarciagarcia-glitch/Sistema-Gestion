@@ -3,11 +3,20 @@
 <h1><%= order ? `Editar orden #${order.id}` : 'Nueva orden de pedido' %></h1>
 
 <% if (query.error) { %>
-  <div class="alert error"><%= query.error %></div>
+  <div class="alert error" style="position: relative; padding-right: 2.5rem;">
+    <button type="button" onclick="this.parentElement.remove()" aria-label="Cerrar"
+      style="position: absolute; top: 0.5rem; right: 0.6rem; background: none; border: none; font-size: 1.1rem; line-height: 1; cursor: pointer; color: inherit; opacity: 0.7;">✕</button>
+    <%= query.error %>
+  </div>
 <% } %>
 
 <div class="card">
   <form method="post" action="<%= order ? `/pedidos/${order.id}` : '/pedidos' %>" id="order-form">
+    <div id="order-form-error" class="alert error" style="display: none; position: relative; padding-right: 2.5rem;">
+      <button type="button" id="order-form-error-close" aria-label="Cerrar"
+        style="position: absolute; top: 0.5rem; right: 0.6rem; background: none; border: none; font-size: 1.1rem; line-height: 1; cursor: pointer; color: inherit; opacity: 0.7;">✕</button>
+      <span id="order-form-error-text"></span>
+    </div>
     <h2 style="margin-top: 0;">Datos de la orden</h2>
     <div class="form-grid">
       <div class="field" style="position: relative;">
@@ -51,40 +60,24 @@
     </div>
 
     <h2>Productos solicitados</h2>
-    <div style="overflow-x: auto;">
+    <div style="overflow-x: auto;" id="items-table-wrapper">
     <table>
       <thead>
         <tr>
-          <th>N°</th><th>Tipo</th><th>Producto</th><th>Color</th><th>A</th><th>L</th><th>E</th>
-          <th>Cantidad</th><th>Total Kg</th><th>Precio U</th><th>Precio Total</th><th></th>
+          <th style="width: 2rem;">N°</th>
+          <th style="width: 110px;">Tipo</th>
+          <th style="min-width: 260px;">Producto</th>
+          <th style="width: 90px;">Cantidad</th>
+          <th style="width: 100px;">Fundas x Bulto</th>
+          <th style="width: 100px;">Fundas x Paquete</th>
+          <th style="width: 90px;">Total Kg</th>
+          <th style="width: 100px;">Precio U</th>
+          <th style="width: 100px;">Precio Total</th>
+          <th style="width: 160px;">Observación</th>
+          <th style="width: 2rem;"></th>
         </tr>
       </thead>
-      <tbody id="items-body">
-        <% const initialItems = (order?.items?.length ? order.items : [null, null, null]); %>
-        <% initialItems.forEach((it, idx) => { %>
-          <tr class="item-row">
-            <td class="item-number"><%= idx + 1 %></td>
-            <td>
-              <select name="items[<%= idx %>][type]">
-                <option value="">Selecciona...</option>
-                <option value="rollo" <%= it?.type === 'rollo' ? 'selected' : '' %>>Rollo</option>
-                <option value="funda" <%= it?.type === 'funda' ? 'selected' : '' %>>Funda</option>
-                <option value="lamina" <%= it?.type === 'lamina' ? 'selected' : '' %>>Lámina</option>
-              </select>
-            </td>
-            <td><input type="text" name="items[<%= idx %>][product]" value="<%= it?.product || '' %>" style="width: 140px;"></td>
-            <td><input type="text" name="items[<%= idx %>][color]" value="<%= it?.color || '' %>" style="width: 80px;"></td>
-            <td><input type="number" step="any" class="width-input" name="items[<%= idx %>][width]" value="<%= it?.width ?? '' %>" style="width: 65px;"></td>
-            <td><input type="number" step="any" class="length-input" name="items[<%= idx %>][length]" value="<%= it?.length ?? '' %>" style="width: 65px;"></td>
-            <td><input type="number" step="any" class="thickness-input" name="items[<%= idx %>][thickness]" value="<%= it?.thickness ?? '' %>" style="width: 65px;"></td>
-            <td><input type="number" step="any" class="qty-input" name="items[<%= idx %>][quantity]" value="<%= it?.quantity ?? '' %>" style="width: 80px;"></td>
-            <td><input type="number" step="any" class="kg-input" name="items[<%= idx %>][total_kg]" value="<%= it?.total_kg ?? '' %>" style="width: 80px;"></td>
-            <td><input type="number" step="any" class="price-input" name="items[<%= idx %>][unit_price]" value="<%= it?.unit_price ?? '' %>" style="width: 90px;"></td>
-            <td class="line-total">$<%= (it?.line_total || 0).toFixed(2) %></td>
-            <td><button type="button" class="btn danger remove-row" style="padding: 0.3rem 0.55rem;">✕</button></td>
-          </tr>
-        <% }) %>
-      </tbody>
+      <tbody id="items-body"></tbody>
     </table>
     </div>
     <button type="button" id="add-row-btn" class="btn secondary" style="margin-top: 0.75rem;">+ Agregar línea</button>
@@ -107,6 +100,198 @@
     <iframe id="client-modal-iframe" src="about:blank" title="Nuevo cliente" style="border: 0; flex: 1; min-height: 560px;"></iframe>
   </div>
 </div>
+
+<div id="custom-item-modal-overlay" class="item-modal-overlay">
+  <div class="item-modal">
+    <div class="item-modal-header">
+      <strong>Producto personalizado</strong>
+      <button type="button" class="btn secondary" id="close-custom-modal" style="padding: 0.3rem 0.6rem;">✕</button>
+    </div>
+    <div class="item-modal-body">
+      <div class="form-grid">
+        <div class="field">
+          <label for="cm_product">Producto</label>
+          <input type="text" id="cm_product" placeholder="Nombre del producto">
+        </div>
+        <div class="field">
+          <label for="cm_category">Categoría</label>
+          <select id="cm_category">
+            <option value="">Selecciona...</option>
+            <% categories.forEach(c => { %>
+              <option value="<%= c.id %>"><%= c.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cm_code">Código</label>
+          <input type="text" id="cm_code" readonly placeholder="Selecciona una categoría" style="background: var(--bg); cursor: not-allowed;">
+        </div>
+        <div class="field" id="cm_unit_field" style="display: none;">
+          <label for="cm_unit">Unidad de medida</label>
+          <select id="cm_unit">
+            <option value="">Selecciona...</option>
+            <% units.forEach(u => { %>
+              <option value="<%= u.id %>"><%= u.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cm_width">Ancho (A)</label>
+          <input type="number" id="cm_width" step="any" min="0">
+        </div>
+        <div class="field">
+          <label for="cm_length">Largo (L)</label>
+          <input type="number" id="cm_length" step="any" min="0">
+        </div>
+        <div class="field">
+          <label for="cm_thickness">Espesor (E)</label>
+          <input type="number" id="cm_thickness" step="any" min="0">
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom: 1rem;">
+        <label>Color</label>
+        <% if (colors.length === 0) { %>
+          <p class="empty" style="padding: 0.5rem 0;">No hay colores en la paleta. Agrega colores desde Inventario → Colores.</p>
+        <% } else { %>
+          <div class="color-palette-picker" id="cm_color_picker">
+            <% colors.forEach(c => { %>
+              <label class="color-swatch-option">
+                <input type="radio" name="cm_color" value="<%= c.name %>">
+                <span class="color-swatch" style="background: <%= c.hex || '#ccc' %>;"></span>
+                <%= c.name %>
+              </label>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="field" style="margin-bottom: 0.75rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+          <input type="checkbox" id="cm_has_fuelle" style="width: auto;"> Lleva fuelle
+        </label>
+      </div>
+      <div id="cm_fuelle_fields" class="form-grid" style="display: none; margin-bottom: 1rem;">
+        <div class="field">
+          <label for="cm_fuelle_type">Tipo de fuelle</label>
+          <select id="cm_fuelle_type">
+            <option value="">Selecciona...</option>
+            <option value="lateral">Fuelle Lateral</option>
+            <option value="fondo">Fuelle Fondo</option>
+            <option value="superior_fondo">Fuelle Superior y Fondo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cm_fuelle_measure_1">Medida</label>
+          <input type="number" id="cm_fuelle_measure_1" step="any" min="0">
+        </div>
+        <div class="field" id="cm_fuelle_measure_2_field" style="display: none;">
+          <label for="cm_fuelle_measure_2">Medida fondo</label>
+          <input type="number" id="cm_fuelle_measure_2" step="any" min="0">
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom: 0.75rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+          <input type="checkbox" id="cm_has_printing" style="width: auto;"> Lleva impresión
+        </label>
+      </div>
+      <div id="cm_printing_fields" class="form-grid" style="display: none; margin-bottom: 0.5rem;">
+        <div class="field">
+          <label for="cm_printing_type">Tipo de impresión</label>
+          <select id="cm_printing_type">
+            <option value="">Selecciona...</option>
+            <option value="serigrafia">Serigrafía</option>
+            <option value="flexografia">Flexografía</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cm_printing_side">Lado de impresión</label>
+          <select id="cm_printing_side">
+            <option value="">Selecciona...</option>
+            <option value="anverso">Anverso</option>
+            <option value="reverso">Reverso</option>
+            <option value="anverso_reverso">Anverso y reverso</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cm_printing_colors">Cantidad de colores</label>
+          <input type="number" id="cm_printing_colors" min="1" step="1">
+        </div>
+        <div class="field">
+          <label for="cm_printing_reference">Referencia</label>
+          <input type="text" id="cm_printing_reference" placeholder="Ej: Supermaxi">
+        </div>
+      </div>
+      <div id="cm_printing_color_slots" style="display: none; margin-bottom: 0.5rem;"></div>
+
+      <div class="field" style="margin-bottom: 0;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+          <input type="checkbox" id="cm_save_to_inventory" style="width: auto;"> Guardar este producto en mi inventario (Producto Terminado)
+        </label>
+      </div>
+    </div>
+    <div class="item-modal-footer">
+      <button type="button" class="btn secondary" id="cancel-custom-modal">Cancelar</button>
+      <button type="button" class="btn" id="save-custom-modal">Agregar a la línea</button>
+    </div>
+  </div>
+</div>
+
+<div id="product-modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 110; align-items: center; justify-content: center;">
+  <div style="background: var(--card); border-radius: 10px; width: min(900px, 94vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);">
+      <strong>Crear producto en inventario</strong>
+      <button type="button" id="close-product-modal" class="btn secondary" style="padding: 0.3rem 0.6rem;">✕</button>
+    </div>
+    <iframe id="product-modal-iframe" src="about:blank" title="Nuevo producto" style="border: 0; flex: 1; min-height: 640px;"></iframe>
+  </div>
+</div>
+
+<style>
+  .item-modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .item-modal {
+    background: var(--card);
+    border-radius: 10px;
+    width: min(680px, 92vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .item-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+  }
+
+  .item-modal-body { padding: 1.25rem; overflow-y: auto; }
+
+  .item-modal-footer {
+    display: flex; justify-content: flex-end; gap: 0.5rem;
+    padding: 1rem 1.25rem; border-top: 1px solid var(--border);
+  }
+
+  .product-chooser { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .product-chooser button { font-size: 0.8rem; padding: 0.35rem 0.6rem; white-space: nowrap; }
+
+  .product-picked-name { font-weight: 600; font-size: 0.9rem; }
+  .product-picked-detail { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+  .product-picked-detail .color-swatch { width: 11px; height: 11px; }
+  .btn-change-product { font-size: 0.75rem; padding: 0.15rem 0.4rem; margin-top: 0.3rem; }
+
+  .field-error { border: 1px solid var(--danger) !important; background: #fef2f2 !important; border-radius: 6px; }
+  td.field-error { padding: 0.4rem; }
+  .field-error-message { color: var(--danger); font-size: 0.75rem; margin-top: 0.25rem; }
+</style>
 
 <script>
   const CLIENTS = <%- JSON.stringify(clients) %>;
@@ -201,35 +386,107 @@
       closeClientModal();
     } else if (data.type === 'person-modal-cancel') {
       closeClientModal();
+    } else if (data.type === 'product-created') {
+      if (customModalRow) {
+        const fields = {
+          product_code: data.sku,
+          color: data.color, width: data.width, length: data.length, thickness: data.thickness,
+          has_fuelle: data.has_fuelle, fuelle_type: data.fuelle_type,
+          fuelle_measure_1: data.fuelle_measure_1, fuelle_measure_2: data.fuelle_measure_2,
+          has_printing: data.has_printing, printing_type: data.printing_type, printing_side: data.printing_side,
+          printing_colors: data.printing_colors, printing_colors_text: data.printing_colors_text,
+          printing_reference: data.printing_reference
+        };
+        setRowPicked(customModalRow, {
+          sourceType: 'inventario', productId: data.id, name: `${data.sku} — ${data.name}`,
+          detail: buildCustomDetail(fields), fields
+        });
+        INVENTORY_ITEMS.push({
+          id: data.id, sku: data.sku, name: data.name,
+          searchText: [data.sku, data.name, data.color].filter(Boolean).join(' ').toLowerCase(),
+          detail: buildCustomDetail(fields), searchDetail: buildCustomDetail(fields), fields
+        });
+      }
+      closeProductModal();
+      closeCustomModal();
+    } else if (data.type === 'product-modal-cancel') {
+      closeProductModal();
     }
   });
 
-  let rowIndex = <%= initialItems.length %>;
+  // ---- Líneas de producto ----
+  const INVENTORY_ITEMS = <%- JSON.stringify(inventoryItems) %>;
+  const EXISTING_LINES = <%- JSON.stringify(
+    (order?.items || []).map((it) => ({
+      sourceType: it.source_type, productId: it.product_id, productCode: it.product_code, type: it.type, product: it.product,
+      color: it.color, width: it.width, length: it.length, thickness: it.thickness,
+      hasFuelle: it.has_fuelle, fuelleType: it.fuelle_type, fuelleMeasure1: it.fuelle_measure_1, fuelleMeasure2: it.fuelle_measure_2,
+      hasPrinting: it.has_printing, printingType: it.printing_type, printingSide: it.printing_side,
+      printingColors: it.printing_colors, printingColorsText: it.printing_colors_text, printingReference: it.printing_reference,
+      quantity: it.quantity, qtyPerBundle: it.qty_per_bundle, qtyPerPackage: it.qty_per_package,
+      totalKg: it.total_kg, unitPrice: it.unit_price, observation: it.observation,
+      detail: it.characteristicsDetail
+    }))
+  ) %>;
+
   const itemsBody = document.getElementById('items-body');
   const addRowBtn = document.getElementById('add-row-btn');
   const subtotalEl = document.getElementById('order-subtotal');
+  let rowIndex = 0;
 
   function rowTemplate(index) {
     return `
       <tr class="item-row">
         <td class="item-number"></td>
         <td>
-          <select name="items[${index}][type]">
+          <select class="type-select" name="items[${index}][type]">
             <option value="">Selecciona...</option>
             <option value="rollo">Rollo</option>
             <option value="funda">Funda</option>
             <option value="lamina">Lámina</option>
           </select>
         </td>
-        <td><input type="text" name="items[${index}][product]" style="width: 140px;"></td>
-        <td><input type="text" name="items[${index}][color]" style="width: 80px;"></td>
-        <td><input type="number" step="any" class="width-input" name="items[${index}][width]" style="width: 65px;"></td>
-        <td><input type="number" step="any" class="length-input" name="items[${index}][length]" style="width: 65px;"></td>
-        <td><input type="number" step="any" class="thickness-input" name="items[${index}][thickness]" style="width: 65px;"></td>
+        <td class="product-cell" style="position: relative;">
+          <input type="hidden" class="source-type-input" name="items[${index}][source_type]" value="">
+          <input type="hidden" class="product-id-input" name="items[${index}][product_id]" value="">
+          <input type="hidden" class="product-code-input" name="items[${index}][product_code]" value="">
+          <input type="hidden" class="product-name-input" name="items[${index}][product]" value="">
+          <input type="hidden" class="color-input" name="items[${index}][color]" value="">
+          <input type="hidden" class="width-input" name="items[${index}][width]" value="">
+          <input type="hidden" class="length-input" name="items[${index}][length]" value="">
+          <input type="hidden" class="thickness-input" name="items[${index}][thickness]" value="">
+          <input type="hidden" class="has-fuelle-input" name="items[${index}][has_fuelle]" value="">
+          <input type="hidden" class="fuelle-type-input" name="items[${index}][fuelle_type]" value="">
+          <input type="hidden" class="fuelle-measure-1-input" name="items[${index}][fuelle_measure_1]" value="">
+          <input type="hidden" class="fuelle-measure-2-input" name="items[${index}][fuelle_measure_2]" value="">
+          <input type="hidden" class="has-printing-input" name="items[${index}][has_printing]" value="">
+          <input type="hidden" class="printing-type-input" name="items[${index}][printing_type]" value="">
+          <input type="hidden" class="printing-side-input" name="items[${index}][printing_side]" value="">
+          <input type="hidden" class="printing-colors-input" name="items[${index}][printing_colors]" value="">
+          <input type="hidden" class="printing-colors-text-input" name="items[${index}][printing_colors_text]" value="">
+          <input type="hidden" class="printing-reference-input" name="items[${index}][printing_reference]" value="">
+
+          <div class="product-chooser">
+            <button type="button" class="btn secondary btn-pick-inventory">📦 Inventario</button>
+            <button type="button" class="btn secondary btn-pick-custom">✏ Personalizado</button>
+          </div>
+
+          <div class="product-picked" style="display: none;">
+            <div class="product-picked-name"></div>
+            <div class="product-picked-detail"></div>
+            <button type="button" class="btn secondary btn-change-product">Cambiar</button>
+          </div>
+
+          <input type="text" class="item-search" placeholder="Buscar por SKU o nombre..." autocomplete="off" style="display: none;">
+          <div class="suggestions-list item-suggestions"></div>
+        </td>
         <td><input type="number" step="any" class="qty-input" name="items[${index}][quantity]" style="width: 80px;"></td>
+        <td><input type="number" step="any" class="bundle-input" name="items[${index}][qty_per_bundle]" style="width: 80px;"></td>
+        <td><input type="number" step="any" class="package-input" name="items[${index}][qty_per_package]" style="width: 80px;"></td>
         <td><input type="number" step="any" class="kg-input" name="items[${index}][total_kg]" style="width: 80px;"></td>
         <td><input type="number" step="any" class="price-input" name="items[${index}][unit_price]" style="width: 90px;"></td>
         <td class="line-total">$0.00</td>
+        <td><input type="text" class="observation-input" name="items[${index}][observation]" style="width: 150px;"></td>
         <td><button type="button" class="btn danger remove-row" style="padding: 0.3rem 0.55rem;">✕</button></td>
       </tr>
     `;
@@ -267,15 +524,465 @@
     row.querySelector('.kg-input').value = kg ? Math.round(kg * 100) / 100 : '';
   }
 
+  function positionSuggestions(row) {
+    const search = row.querySelector('.item-search');
+    const suggestions = row.querySelector('.item-suggestions');
+    const rect = search.getBoundingClientRect();
+    suggestions.style.position = 'fixed';
+    suggestions.style.top = `${rect.bottom + 4}px`;
+    suggestions.style.left = `${rect.left}px`;
+    suggestions.style.width = `${rect.width}px`;
+    suggestions.style.right = 'auto';
+    suggestions.style.marginTop = '0';
+  }
+
+  function setRowPicked(row, { sourceType, productId, name, detail, fields }) {
+    row.querySelector('.source-type-input').value = sourceType;
+    row.querySelector('.product-id-input').value = productId || '';
+    row.querySelector('.product-code-input').value = fields.product_code || '';
+    row.querySelector('.product-name-input').value = name;
+    row.querySelector('.color-input').value = fields.color || '';
+    row.querySelector('.width-input').value = fields.width ?? '';
+    row.querySelector('.length-input').value = fields.length ?? '';
+    row.querySelector('.thickness-input').value = fields.thickness ?? '';
+    row.querySelector('.has-fuelle-input').value = fields.has_fuelle ? '1' : '';
+    row.querySelector('.fuelle-type-input').value = fields.fuelle_type || '';
+    row.querySelector('.fuelle-measure-1-input').value = fields.fuelle_measure_1 ?? '';
+    row.querySelector('.fuelle-measure-2-input').value = fields.fuelle_measure_2 ?? '';
+    row.querySelector('.has-printing-input').value = fields.has_printing ? '1' : '';
+    row.querySelector('.printing-type-input').value = fields.printing_type || '';
+    row.querySelector('.printing-side-input').value = fields.printing_side || '';
+    row.querySelector('.printing-colors-input').value = fields.printing_colors ?? '';
+    row.querySelector('.printing-colors-text-input').value = fields.printing_colors_text || '';
+    row.querySelector('.printing-reference-input').value = fields.printing_reference || '';
+
+    row.querySelector('.product-chooser').style.display = 'none';
+    row.querySelector('.item-search').style.display = 'none';
+    row.querySelector('.item-suggestions').style.display = 'none';
+    const picked = row.querySelector('.product-picked');
+    picked.style.display = 'block';
+    picked.querySelector('.product-picked-name').textContent = name;
+    picked.querySelector('.product-picked-detail').innerHTML = detail || '';
+
+    const productCell = row.querySelector('.product-cell');
+    productCell.classList.remove('field-error');
+    productCell.querySelectorAll('.field-error-message').forEach((el) => el.remove());
+
+    updateRowKg(row);
+    updateRowTotal(row);
+  }
+
+  function resetRowProduct(row) {
+    ['.source-type-input', '.product-id-input', '.product-code-input', '.product-name-input', '.color-input', '.width-input', '.length-input',
+     '.thickness-input', '.has-fuelle-input', '.fuelle-type-input', '.fuelle-measure-1-input', '.fuelle-measure-2-input',
+     '.has-printing-input', '.printing-type-input', '.printing-side-input', '.printing-colors-input', '.printing-colors-text-input', '.printing-reference-input']
+      .forEach((sel) => { row.querySelector(sel).value = ''; });
+
+    row.querySelector('.product-picked').style.display = 'none';
+    row.querySelector('.item-search').style.display = 'none';
+    row.querySelector('.item-search').value = '';
+    row.querySelector('.item-suggestions').style.display = 'none';
+    row.querySelector('.product-chooser').style.display = 'flex';
+    updateRowKg(row);
+    updateRowTotal(row);
+  }
+
+  function renderRowSuggestions(row, matches) {
+    const suggestions = row.querySelector('.item-suggestions');
+    suggestions.innerHTML = '';
+
+    if (matches.length === 0) {
+      suggestions.style.display = 'none';
+      return;
+    }
+
+    positionSuggestions(row);
+
+    matches.slice(0, 50).forEach((it) => {
+      const div = document.createElement('div');
+      div.className = 'suggestion-item';
+
+      const main = document.createElement('div');
+      main.textContent = `${it.sku} — ${it.name}`;
+      div.appendChild(main);
+
+      if (it.searchDetail) {
+        const detail = document.createElement('div');
+        detail.className = 'suggestion-detail';
+        detail.innerHTML = it.searchDetail;
+        div.appendChild(detail);
+      }
+
+      div.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        setRowPicked(row, {
+          sourceType: 'inventario', productId: it.id, name: `${it.sku} — ${it.name}`,
+          detail: it.detail, fields: it.fields
+        });
+      });
+      suggestions.appendChild(div);
+    });
+
+    suggestions.style.display = 'block';
+  }
+
+  let customModalRow = null;
+  const customModalOverlay = document.getElementById('custom-item-modal-overlay');
+  const cmProduct = document.getElementById('cm_product');
+  const cmCategory = document.getElementById('cm_category');
+  const cmCode = document.getElementById('cm_code');
+  const cmWidth = document.getElementById('cm_width');
+  const cmLength = document.getElementById('cm_length');
+  const cmThickness = document.getElementById('cm_thickness');
+  const cmColorPicker = document.getElementById('cm_color_picker');
+  const cmHasFuelle = document.getElementById('cm_has_fuelle');
+  const cmFuelleFields = document.getElementById('cm_fuelle_fields');
+  const cmFuelleType = document.getElementById('cm_fuelle_type');
+  const cmFuelleMeasure1 = document.getElementById('cm_fuelle_measure_1');
+  const cmFuelleMeasure2 = document.getElementById('cm_fuelle_measure_2');
+  const cmFuelleMeasure2Field = document.getElementById('cm_fuelle_measure_2_field');
+  const cmHasPrinting = document.getElementById('cm_has_printing');
+  const cmPrintingFields = document.getElementById('cm_printing_fields');
+  const cmPrintingType = document.getElementById('cm_printing_type');
+  const cmPrintingSide = document.getElementById('cm_printing_side');
+  const cmPrintingColors = document.getElementById('cm_printing_colors');
+  const cmPrintingReference = document.getElementById('cm_printing_reference');
+  const cmPrintingColorSlots = document.getElementById('cm_printing_color_slots');
+  const cmSaveToInventory = document.getElementById('cm_save_to_inventory');
+  const cmUnitField = document.getElementById('cm_unit_field');
+  const cmUnit = document.getElementById('cm_unit');
+
+  const productModalOverlay = document.getElementById('product-modal-overlay');
+  const productModalIframe = document.getElementById('product-modal-iframe');
+  const closeProductModalBtn = document.getElementById('close-product-modal');
+
+  function openProductModal(params) {
+    const qs = new URLSearchParams({ ...params, modal: '1' }).toString();
+    productModalIframe.src = `/inventario/productos/new?${qs}`;
+    productModalOverlay.style.display = 'flex';
+  }
+
+  function closeProductModal() {
+    productModalOverlay.style.display = 'none';
+    productModalIframe.src = 'about:blank';
+  }
+
+  closeProductModalBtn.addEventListener('click', closeProductModal);
+
+  const COLORS = <%- JSON.stringify(colors) %>;
+  const NEXT_CODE_BY_CATEGORY = <%- JSON.stringify(nextCodeByCategory) %>;
+  const MAX_PRINTING_COLORS = 10;
+  const usedCodeCounts = {};
+
+  function toggleCmFuelle() { cmFuelleFields.style.display = cmHasFuelle.checked ? 'grid' : 'none'; }
+  function toggleCmFuelleMeasure2() { cmFuelleMeasure2Field.style.display = cmFuelleType.value === 'superior_fondo' ? '' : 'none'; }
+  function toggleCmPrinting() {
+    cmPrintingFields.style.display = cmHasPrinting.checked ? 'grid' : 'none';
+    renderCmPrintingColorSlots();
+  }
+
+  function parseCodeParts(code) {
+    const m = /^(.*?)(\d+)$/.exec(String(code || ''));
+    if (!m) return null;
+    return { prefix: m[1], number: parseInt(m[2], 10), width: m[2].length };
+  }
+
+  function updateCmCode() {
+    const categoryId = cmCategory.value;
+    const baseCode = categoryId ? NEXT_CODE_BY_CATEGORY[categoryId] : null;
+    if (!baseCode) {
+      cmCode.value = '';
+      cmCode.placeholder = categoryId ? 'Sin productos previos en esta categoría' : 'Selecciona una categoría';
+      return;
+    }
+    const parts = parseCodeParts(baseCode);
+    const used = usedCodeCounts[categoryId] || 0;
+    cmCode.value = parts ? `${parts.prefix}${String(parts.number + used).padStart(parts.width, '0')}` : baseCode;
+  }
+
+  cmCategory.addEventListener('change', updateCmCode);
+  cmSaveToInventory.addEventListener('change', () => {
+    cmUnitField.style.display = cmSaveToInventory.checked ? '' : 'none';
+  });
+  cmHasFuelle.addEventListener('change', toggleCmFuelle);
+  cmFuelleType.addEventListener('change', toggleCmFuelleMeasure2);
+  cmHasPrinting.addEventListener('change', toggleCmPrinting);
+  cmPrintingColors.addEventListener('input', () => renderCmPrintingColorSlots());
+
+  function renderCmPrintingColorSlots(existingColors) {
+    const count = Math.min(Math.max(parseInt(cmPrintingColors.value, 10) || 0, 0), MAX_PRINTING_COLORS);
+    const previous = existingColors || getCmPrintingColorSelections();
+    cmPrintingColorSlots.innerHTML = '';
+
+    if (!cmHasPrinting.checked || count === 0) {
+      cmPrintingColorSlots.style.display = 'none';
+      return;
+    }
+
+    for (let i = 1; i <= count; i++) {
+      const field = document.createElement('div');
+      field.className = 'field';
+
+      const label = document.createElement('label');
+      label.textContent = `Color ${i}`;
+      field.appendChild(label);
+
+      if (COLORS.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'muted';
+        empty.textContent = 'Todavía no hay colores en la paleta. Agrega colores desde Inventario → Colores.';
+        field.appendChild(empty);
+      } else {
+        const picker = document.createElement('div');
+        picker.className = 'color-palette-picker';
+        const existing = previous[i - 1] || '';
+
+        COLORS.forEach((c) => {
+          const optionLabel = document.createElement('label');
+          optionLabel.className = 'color-swatch-option';
+
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = `cm_printing_color_${i}`;
+          input.value = c.name;
+          if (existing && existing.toLowerCase() === c.name.toLowerCase()) input.checked = true;
+
+          const swatch = document.createElement('span');
+          swatch.className = 'color-swatch';
+          swatch.style.background = c.hex || '#ccc';
+
+          optionLabel.appendChild(input);
+          optionLabel.appendChild(swatch);
+          optionLabel.appendChild(document.createTextNode(c.name));
+          picker.appendChild(optionLabel);
+        });
+
+        field.appendChild(picker);
+      }
+
+      cmPrintingColorSlots.appendChild(field);
+    }
+
+    cmPrintingColorSlots.style.display = 'block';
+  }
+
+  function getCmPrintingColorSelections() {
+    const count = Math.min(Math.max(parseInt(cmPrintingColors.value, 10) || 0, 0), MAX_PRINTING_COLORS);
+    const names = [];
+    for (let i = 1; i <= count; i++) {
+      const checked = cmPrintingColorSlots.querySelector(`input[name="cm_printing_color_${i}"]:checked`);
+      if (checked) names.push(checked.value);
+    }
+    return names;
+  }
+
+  function resetCustomModal() {
+    cmProduct.value = '';
+    cmCategory.value = '';
+    cmCode.value = '';
+    cmCode.placeholder = 'Selecciona una categoría';
+    cmSaveToInventory.checked = false;
+    cmUnitField.style.display = 'none';
+    cmUnit.value = '';
+    cmWidth.value = ''; cmLength.value = ''; cmThickness.value = '';
+    if (cmColorPicker) cmColorPicker.querySelectorAll('input[type="radio"]').forEach((r) => { r.checked = false; });
+    cmHasFuelle.checked = false;
+    cmFuelleType.value = ''; cmFuelleMeasure1.value = ''; cmFuelleMeasure2.value = '';
+    cmHasPrinting.checked = false;
+    cmPrintingType.value = ''; cmPrintingSide.value = ''; cmPrintingColors.value = ''; cmPrintingReference.value = '';
+    toggleCmFuelle(); toggleCmFuelleMeasure2(); toggleCmPrinting();
+  }
+
+  function fillCustomModalFromRow(row) {
+    cmProduct.value = row.querySelector('.product-name-input').value;
+    cmCategory.value = '';
+    cmCode.value = row.querySelector('.product-code-input').value || '';
+    cmSaveToInventory.checked = false;
+    cmUnitField.style.display = 'none';
+    cmUnit.value = '';
+    cmWidth.value = row.querySelector('.width-input').value;
+    cmLength.value = row.querySelector('.length-input').value;
+    cmThickness.value = row.querySelector('.thickness-input').value;
+    const color = row.querySelector('.color-input').value;
+    if (cmColorPicker && color) {
+      const radio = cmColorPicker.querySelector(`input[value="${CSS.escape(color)}"]`);
+      if (radio) radio.checked = true;
+    }
+    cmHasFuelle.checked = row.querySelector('.has-fuelle-input').value === '1';
+    cmFuelleType.value = row.querySelector('.fuelle-type-input').value;
+    cmFuelleMeasure1.value = row.querySelector('.fuelle-measure-1-input').value;
+    cmFuelleMeasure2.value = row.querySelector('.fuelle-measure-2-input').value;
+    cmHasPrinting.checked = row.querySelector('.has-printing-input').value === '1';
+    cmPrintingType.value = row.querySelector('.printing-type-input').value;
+    cmPrintingSide.value = row.querySelector('.printing-side-input').value;
+    cmPrintingColors.value = row.querySelector('.printing-colors-input').value;
+    cmPrintingReference.value = row.querySelector('.printing-reference-input').value;
+    const existingPrintingColors = (row.querySelector('.printing-colors-text-input').value || '')
+      .split('/').map((s) => s.trim()).filter(Boolean);
+    toggleCmFuelle(); toggleCmFuelleMeasure2(); toggleCmPrinting();
+    renderCmPrintingColorSlots(existingPrintingColors);
+  }
+
+  function openCustomModal(row, editing) {
+    customModalRow = row;
+    if (editing) fillCustomModalFromRow(row); else resetCustomModal();
+    customModalOverlay.style.display = 'flex';
+    cmProduct.focus();
+  }
+
+  function closeCustomModal() {
+    customModalOverlay.style.display = 'none';
+    customModalRow = null;
+  }
+
+  document.getElementById('close-custom-modal').addEventListener('click', closeCustomModal);
+  document.getElementById('cancel-custom-modal').addEventListener('click', closeCustomModal);
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  const FUELLE_LABELS = { lateral: 'Fuelle Lateral', fondo: 'Fuelle Fondo', superior_fondo: 'Fuelle Superior y Fondo' };
+  const PRINTING_TYPE_LABELS = { serigrafia: 'Serigrafía', flexografia: 'Flexografía' };
+  const PRINTING_SIDE_LABELS = { anverso: 'Anverso', reverso: 'Reverso', anverso_reverso: 'Anverso y Reverso' };
+  const COLOR_HEX = <%- JSON.stringify(colorHexByName) %>;
+
+  function swatchHtml(name) {
+    const hex = COLOR_HEX[String(name).toLowerCase()] || '#ccc';
+    return `<span class="color-swatch" style="width:11px;height:11px;margin-right:2px;vertical-align:middle;background:${hex};" title="${escapeHtml(name)}"></span>`;
+  }
+
+  function buildCustomDetail(fields) {
+    const parts = [];
+    if (fields.color) parts.push(`Color: ${swatchHtml(fields.color)}`);
+    if (fields.width != null || fields.length != null) parts.push(`A: ${fields.width ?? '—'} · L: ${fields.length ?? '—'}`);
+    if (fields.thickness != null && fields.thickness !== '') parts.push(`E: ${fields.thickness}`);
+    if (fields.has_fuelle && fields.fuelle_type) {
+      const measures = fields.fuelle_type === 'superior_fondo'
+        ? `Sup: ${fields.fuelle_measure_1 ?? '—'} / Fon: ${fields.fuelle_measure_2 ?? '—'}`
+        : `${fields.fuelle_measure_1 ?? '—'}`;
+      parts.push(`${FUELLE_LABELS[fields.fuelle_type]}: ${measures}`);
+    }
+    if (fields.has_printing) {
+      const bits = [];
+      if (fields.printing_type) bits.push(PRINTING_TYPE_LABELS[fields.printing_type] || fields.printing_type);
+      if (fields.printing_side) bits.push(PRINTING_SIDE_LABELS[fields.printing_side] || fields.printing_side);
+      parts.push(`Impresión: ${escapeHtml(bits.join(' · ') || 'Sí')}`);
+      if (fields.printing_colors_text) {
+        parts.push(`Colores de Impresión: ${fields.printing_colors_text.split('/').map((s) => s.trim()).filter(Boolean).map((c) => swatchHtml(c)).join('')}`);
+      } else if (fields.printing_colors) {
+        parts.push(`${fields.printing_colors} color${Number(fields.printing_colors) === 1 ? '' : 'es'}`);
+      }
+    }
+    if (fields.printing_reference) parts.push(`Ref: ${escapeHtml(fields.printing_reference)}`);
+    return parts.join(' · ');
+  }
+
+  document.getElementById('save-custom-modal').addEventListener('click', () => {
+    if (!customModalRow) return;
+    const name = cmProduct.value.trim();
+    if (!name) { alert('Escribe el nombre del producto'); cmProduct.focus(); return; }
+
+    const selectedColor = cmColorPicker ? cmColorPicker.querySelector('input[type="radio"]:checked') : null;
+    const printingColorNames = cmHasPrinting.checked ? getCmPrintingColorSelections() : [];
+    const fields = {
+      product_code: cmCode.value || '',
+      color: selectedColor ? selectedColor.value : '',
+      width: cmWidth.value || null,
+      length: cmLength.value || null,
+      thickness: cmThickness.value || null,
+      has_fuelle: cmHasFuelle.checked ? 1 : 0,
+      fuelle_type: cmHasFuelle.checked ? cmFuelleType.value : '',
+      fuelle_measure_1: cmHasFuelle.checked ? (cmFuelleMeasure1.value || null) : null,
+      fuelle_measure_2: cmHasFuelle.checked && cmFuelleType.value === 'superior_fondo' ? (cmFuelleMeasure2.value || null) : null,
+      has_printing: cmHasPrinting.checked ? 1 : 0,
+      printing_type: cmHasPrinting.checked ? cmPrintingType.value : '',
+      printing_side: cmHasPrinting.checked ? cmPrintingSide.value : '',
+      printing_colors: cmHasPrinting.checked ? (cmPrintingColors.value || null) : null,
+      printing_colors_text: cmHasPrinting.checked ? printingColorNames.join(' / ') : '',
+      printing_reference: cmHasPrinting.checked ? cmPrintingReference.value.trim() : ''
+    };
+
+    if (cmSaveToInventory.checked) {
+      if (!cmCategory.value) { alert('Selecciona una categoría para guardar el producto en inventario'); cmCategory.focus(); return; }
+      if (!cmCode.value) { alert('No se pudo generar un código automático para esta categoría'); return; }
+      if (!cmUnit.value) { alert('Selecciona la unidad de medida'); cmUnit.focus(); return; }
+
+      openProductModal({
+        category_id: cmCategory.value, sku: cmCode.value, name, unit_id: cmUnit.value,
+        color: fields.color || '', width: fields.width ?? '', length: fields.length ?? '', thickness: fields.thickness ?? '',
+        has_fuelle: fields.has_fuelle ? '1' : '0',
+        fuelle_type: fields.fuelle_type || '', fuelle_measure_1: fields.fuelle_measure_1 ?? '', fuelle_measure_2: fields.fuelle_measure_2 ?? '',
+        has_printing: fields.has_printing ? '1' : '0',
+        printing_type: fields.printing_type || '', printing_side: fields.printing_side || '',
+        printing_reference: fields.printing_reference || '', printing_colors: fields.printing_colors ?? '',
+        printing_colors_prefill: printingColorNames.join(',')
+      });
+      return;
+    }
+
+    if (cmCategory.value && cmCode.value) {
+      usedCodeCounts[cmCategory.value] = (usedCodeCounts[cmCategory.value] || 0) + 1;
+    }
+
+    setRowPicked(customModalRow, {
+      sourceType: 'personalizado', productId: '', name,
+      detail: buildCustomDetail(fields), fields
+    });
+    closeCustomModal();
+  });
+
+  function searchableInventory() {
+    return INVENTORY_ITEMS;
+  }
+
   function attachRowListeners(row) {
-    row.querySelector('.qty-input').addEventListener('input', () => {
+    row.querySelector('.btn-pick-inventory').addEventListener('click', () => {
+      row.querySelector('.product-chooser').style.display = 'none';
+      const search = row.querySelector('.item-search');
+      search.style.display = 'block';
+      search.focus();
+    });
+
+    row.querySelector('.btn-pick-custom').addEventListener('click', () => {
+      openCustomModal(row, false);
+    });
+
+    row.querySelector('.btn-change-product').addEventListener('click', () => {
+      if (row.querySelector('.source-type-input').value === 'personalizado') {
+        openCustomModal(row, true);
+      } else {
+        resetRowProduct(row);
+      }
+    });
+
+    const search = row.querySelector('.item-search');
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      renderRowSuggestions(row, q ? searchableInventory().filter((it) => it.searchText.includes(q)) : []);
+    });
+    search.addEventListener('focus', () => {
+      const q = search.value.trim().toLowerCase();
+      if (q) renderRowSuggestions(row, searchableInventory().filter((it) => it.searchText.includes(q)));
+    });
+
+    const qtyInput = row.querySelector('.qty-input');
+    const priceInput = row.querySelector('.price-input');
+    const typeSelect = row.querySelector('.type-select');
+
+    qtyInput.addEventListener('input', () => {
       updateRowTotal(row);
       updateRowKg(row);
+      if (qtyInput.value && Number(qtyInput.value) > 0) qtyInput.classList.remove('field-error');
     });
-    row.querySelector('.price-input').addEventListener('input', () => updateRowTotal(row));
-    row.querySelector('.width-input').addEventListener('input', () => updateRowKg(row));
-    row.querySelector('.length-input').addEventListener('input', () => updateRowKg(row));
-    row.querySelector('.thickness-input').addEventListener('input', () => updateRowKg(row));
+    priceInput.addEventListener('input', () => {
+      updateRowTotal(row);
+      if (priceInput.value && Number(priceInput.value) >= 0) priceInput.classList.remove('field-error');
+    });
+    typeSelect.addEventListener('change', () => {
+      if (typeSelect.value) typeSelect.classList.remove('field-error');
+    });
+
     row.querySelector('.remove-row').addEventListener('click', () => {
       row.remove();
       renumberRows();
@@ -283,17 +990,168 @@
     });
   }
 
-  addRowBtn.addEventListener('click', () => {
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('.item-suggestions').forEach((s) => {
+      if (!s.parentElement.contains(e.target)) s.style.display = 'none';
+    });
+  });
+
+  function repositionVisibleSuggestions() {
+    document.querySelectorAll('#items-body .item-row').forEach((row) => {
+      const suggestions = row.querySelector('.item-suggestions');
+      if (suggestions.style.display === 'block') positionSuggestions(row);
+    });
+  }
+
+  document.getElementById('items-table-wrapper').addEventListener('scroll', repositionVisibleSuggestions);
+  window.addEventListener('scroll', repositionVisibleSuggestions, true);
+  window.addEventListener('resize', repositionVisibleSuggestions);
+
+  function addRow() {
     const temp = document.createElement('tbody');
     temp.innerHTML = rowTemplate(rowIndex++);
     const newRow = temp.firstElementChild;
     itemsBody.appendChild(newRow);
     attachRowListeners(newRow);
     renumberRows();
+    return newRow;
+  }
+
+  const orderFormError = document.getElementById('order-form-error');
+  const orderFormErrorText = document.getElementById('order-form-error-text');
+
+  function showFormError(message) {
+    orderFormErrorText.textContent = message;
+    orderFormError.style.display = 'block';
+  }
+
+  function hideFormError() {
+    orderFormError.style.display = 'none';
+  }
+
+  document.getElementById('order-form-error-close').addEventListener('click', hideFormError);
+
+  function isRowEmpty(row) {
+    const hasProduct = !!row.querySelector('.product-name-input').value.trim();
+    const hasType = !!row.querySelector('.type-select').value;
+    const hasQty = !!row.querySelector('.qty-input').value;
+    const hasPrice = !!row.querySelector('.price-input').value;
+    return !hasProduct && !hasType && !hasQty && !hasPrice;
+  }
+
+  function clearRowErrors(row) {
+    row.querySelectorAll('.field-error').forEach((el) => el.classList.remove('field-error'));
+    row.querySelectorAll('.field-error-message').forEach((el) => el.remove());
+  }
+
+  function markFieldError(el, message) {
+    el.classList.add('field-error');
+    if (message) {
+      const msg = document.createElement('div');
+      msg.className = 'field-error-message';
+      msg.textContent = message;
+      el.appendChild(msg);
+    }
+  }
+
+  function validateRow(row) {
+    clearRowErrors(row);
+    if (isRowEmpty(row)) return null;
+
+    let firstInvalid = null;
+    const typeSelect = row.querySelector('.type-select');
+    const productNameInput = row.querySelector('.product-name-input');
+    const productCell = row.querySelector('.product-cell');
+    const qtyInput = row.querySelector('.qty-input');
+    const priceInput = row.querySelector('.price-input');
+
+    if (!productNameInput.value.trim()) {
+      markFieldError(productCell, 'Selecciona o crea un producto');
+      firstInvalid = firstInvalid || productCell;
+    }
+    if (!typeSelect.value) {
+      markFieldError(typeSelect);
+      firstInvalid = firstInvalid || typeSelect;
+    }
+    if (!qtyInput.value || Number(qtyInput.value) <= 0) {
+      markFieldError(qtyInput);
+      firstInvalid = firstInvalid || qtyInput;
+    }
+    if (!priceInput.value || Number(priceInput.value) < 0) {
+      markFieldError(priceInput);
+      firstInvalid = firstInvalid || priceInput;
+    }
+
+    return firstInvalid;
+  }
+
+  document.getElementById('order-form').addEventListener('submit', (e) => {
+    const rows = Array.from(document.querySelectorAll('#items-body .item-row'));
+    let firstInvalidEl = null;
+    let anyProduct = false;
+
+    rows.forEach((row) => {
+      const invalid = validateRow(row);
+      if (invalid && !firstInvalidEl) firstInvalidEl = invalid;
+      if (!isRowEmpty(row) && row.querySelector('.product-name-input').value.trim()) anyProduct = true;
+    });
+
+    if (firstInvalidEl) {
+      e.preventDefault();
+      showFormError('Revisa los campos resaltados en rojo: faltan datos obligatorios en una o más líneas.');
+      firstInvalidEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (firstInvalidEl.focus) firstInvalidEl.focus();
+      return;
+    }
+
+    if (!anyProduct) {
+      e.preventDefault();
+      showFormError('Agrega al menos un producto a la orden.');
+      document.getElementById('items-table-wrapper').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    hideFormError();
   });
 
-  document.querySelectorAll('#items-body .item-row').forEach(attachRowListeners);
-  renumberRows();
+  addRowBtn.addEventListener('click', addRow);
+
+  if (EXISTING_LINES.length > 0) {
+    EXISTING_LINES.forEach((line) => {
+      const row = addRow();
+      row.querySelector('.type-select').value = line.type || '';
+      row.querySelector('.qty-input').value = line.quantity ?? '';
+      row.querySelector('.bundle-input').value = line.qtyPerBundle ?? '';
+      row.querySelector('.package-input').value = line.qtyPerPackage ?? '';
+      row.querySelector('.kg-input').value = line.totalKg ?? '';
+      row.querySelector('.price-input').value = line.unitPrice ?? '';
+      row.querySelector('.observation-input').value = line.observation || '';
+
+      if (line.product) {
+        setRowPicked(row, {
+          sourceType: line.sourceType || 'personalizado',
+          productId: line.productId || '',
+          name: line.product,
+          detail: line.detail,
+          fields: {
+            product_code: line.productCode,
+            color: line.color, width: line.width, length: line.length, thickness: line.thickness,
+            has_fuelle: line.hasFuelle, fuelle_type: line.fuelleType,
+            fuelle_measure_1: line.fuelleMeasure1, fuelle_measure_2: line.fuelleMeasure2,
+            has_printing: line.hasPrinting, printing_type: line.printingType, printing_side: line.printingSide,
+            printing_colors: line.printingColors, printing_colors_text: line.printingColorsText, printing_reference: line.printingReference
+          }
+        });
+        row.querySelector('.kg-input').value = line.totalKg ?? '';
+      }
+      updateRowTotal(row);
+    });
+  } else {
+    addRow();
+    addRow();
+    addRow();
+  }
+
   updateSubtotal();
 </script>
 

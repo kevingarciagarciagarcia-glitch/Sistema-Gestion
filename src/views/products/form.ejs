@@ -1,13 +1,27 @@
+<% const isModal = locals.modal === true; %>
+<% if (!isModal) { %>
 <%- include('../partials/header', { currentPage: 'products' }) %>
+<% } else { %>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nuevo producto</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body style="padding: 1rem;">
+<% } %>
 
-<h1><%= product ? 'Editar producto' : 'Nuevo producto' %></h1>
+<h1><%= product?.id ? 'Editar producto' : 'Nuevo producto' %></h1>
 
 <% if (query.error) { %>
   <div class="alert error"><%= query.error %></div>
 <% } %>
 
 <div class="card">
-  <form method="post" action="<%= product ? `/inventario/productos/${product.id}` : '/inventario/productos' %>">
+  <form method="post" action="<%= product?.id ? `/inventario/productos/${product.id}` : '/inventario/productos' %>">
+    <% if (isModal) { %><input type="hidden" name="modal" value="1"><% } %>
     <div class="form-grid">
       <div class="field">
         <label for="sku">SKU</label>
@@ -187,11 +201,21 @@
     <% } %>
 
     <button class="btn" type="submit">Guardar</button>
-    <a class="btn secondary" href="<%= cancelUrl %>">Cancelar</a>
+    <% if (isModal) { %>
+      <button type="button" class="btn secondary" id="cancel-modal-btn">Cancelar</button>
+    <% } else { %>
+      <a class="btn secondary" href="<%= cancelUrl %>">Cancelar</a>
+    <% } %>
   </form>
 </div>
 
 <script>
+  <% if (isModal) { %>
+  document.getElementById('cancel-modal-btn').addEventListener('click', () => {
+    window.parent.postMessage({ type: 'product-modal-cancel' }, window.location.origin);
+  });
+  <% } %>
+
   const baseUnitSelect = document.getElementById('unit_id');
   const unitSuffixEls = document.querySelectorAll('[data-current-unit-label]');
 
@@ -323,4 +347,9 @@
   toggleFuelleFields();
 </script>
 
+<% if (!isModal) { %>
 <%- include('../partials/footer') %>
+<% } else { %>
+</body>
+</html>
+<% } %>

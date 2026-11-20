@@ -18,16 +18,19 @@
     <p class="empty">Todavía no hay órdenes de pedido registradas.</p>
   <% } else { %>
     <div style="overflow-x: auto;">
-    <table>
+    <table class="batch-summary-table">
       <thead>
         <tr>
+          <th style="width: 2rem;"></th>
           <th>N° OP</th><th>Cliente</th><th>N° Proforma</th><th>Fecha Pedido</th><th>Fecha Entrega</th>
           <th>Vendedor</th><th>Subtotal</th><th></th>
         </tr>
       </thead>
       <tbody>
+        <% const typeLabels = { rollo: 'Rollo', funda: 'Funda', lamina: 'Lámina' }; %>
         <% orders.forEach(o => { %>
-          <tr>
+          <tr class="batch-row" data-batch-toggle>
+            <td><button type="button" class="batch-toggle-btn" aria-label="Mostrar detalle">▸</button></td>
             <td><strong>#<%= o.id %></strong></td>
             <td><%= o.client %></td>
             <td><%= o.proforma_number || '—' %></td>
@@ -35,12 +38,47 @@
             <td><%= o.delivery_date || '—' %></td>
             <td><%= o.seller_name || '—' %></td>
             <td>$<%= o.subtotal.toFixed(2) %></td>
-            <td class="actions-cell">
+            <td class="actions-cell no-toggle">
               <a class="btn secondary" href="/pedidos/<%= o.id %>">Ver</a>
               <a class="btn secondary" href="/pedidos/<%= o.id %>/edit">Editar</a>
               <form class="inline" method="post" action="/pedidos/<%= o.id %>/delete" onsubmit="return confirm('¿Eliminar esta orden de pedido?');">
                 <button class="btn danger" type="submit">Eliminar</button>
               </form>
+            </td>
+          </tr>
+          <tr class="batch-detail-row" style="display: none;">
+            <td></td>
+            <td colspan="7" style="padding: 0 0 0.75rem;">
+              <% if (o.items.length === 0) { %>
+                <p class="empty">Esta orden no tiene ítems.</p>
+              <% } else { %>
+                <table class="batch-detail-table">
+                  <thead>
+                    <tr>
+                      <th>N°</th><th>Tipo</th><th>Producto</th><th>Características</th>
+                      <th>Cantidad</th><th>Fundas x Bulto</th><th>Fundas x Paquete</th><th>Total Kg</th>
+                      <th>Precio U</th><th>Precio Total</th><th>Observación</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% o.items.forEach(it => { %>
+                      <tr>
+                        <td><%= it.item_number %></td>
+                        <td><%= typeLabels[it.type] || it.type %></td>
+                        <td><%= it.product %></td>
+                        <td><%- it.characteristicsDetail || '—' %></td>
+                        <td><%= it.quantity %></td>
+                        <td><%= it.qty_per_bundle ?? '—' %></td>
+                        <td><%= it.qty_per_package ?? '—' %></td>
+                        <td><%= it.total_kg ?? '—' %></td>
+                        <td>$<%= it.unit_price.toFixed(2) %></td>
+                        <td>$<%= it.line_total.toFixed(2) %></td>
+                        <td><%= it.observation || '—' %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              <% } %>
             </td>
           </tr>
         <% }) %>
@@ -49,5 +87,50 @@
     </div>
   <% } %>
 </div>
+
+<style>
+  .batch-row { cursor: pointer; }
+  .batch-row:hover { background: #f8fafc; }
+  .batch-toggle-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 1.8rem;
+    height: 1.8rem;
+    cursor: pointer;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+  }
+  .batch-row.expanded .batch-toggle-btn { transform: rotate(90deg); }
+  .batch-detail-table { width: 100%; table-layout: fixed; background: var(--bg); border-radius: 6px; }
+  .batch-detail-table th, .batch-detail-table td { padding: 0.45rem 0.6rem; font-size: 0.85rem; word-break: break-word; }
+  .batch-detail-table th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.72rem; }
+  .batch-detail-table th:nth-child(1) { width: 3%; }
+  .batch-detail-table th:nth-child(2) { width: 6%; }
+  .batch-detail-table th:nth-child(3) { width: 12%; }
+  .batch-detail-table th:nth-child(4) { width: 28%; }
+  .batch-detail-table th:nth-child(5) { width: 6%; }
+  .batch-detail-table th:nth-child(6) { width: 8%; }
+  .batch-detail-table th:nth-child(7) { width: 8%; }
+  .batch-detail-table th:nth-child(8) { width: 6%; }
+  .batch-detail-table th:nth-child(9) { width: 7%; }
+  .batch-detail-table th:nth-child(10) { width: 7%; }
+  .batch-detail-table th:nth-child(11) { width: 9%; }
+
+  main { max-width: 1500px; }
+</style>
+
+<script>
+  document.querySelectorAll('.batch-row').forEach((row) => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.no-toggle')) return;
+      const detailRow = row.nextElementSibling;
+      const isHidden = detailRow.style.display === 'none';
+      detailRow.style.display = isHidden ? 'table-row' : 'none';
+      row.classList.toggle('expanded', isHidden);
+      row.querySelector('.batch-toggle-btn').textContent = isHidden ? '▾' : '▸';
+    });
+  });
+</script>
 
 <%- include('../partials/footer') %>

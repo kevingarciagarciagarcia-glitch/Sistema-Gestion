@@ -244,16 +244,32 @@ async function initSchema() {
       id SERIAL PRIMARY KEY,
       order_id INTEGER NOT NULL REFERENCES sales_orders(id) ON DELETE CASCADE,
       item_number INTEGER NOT NULL,
+      source_type TEXT NOT NULL DEFAULT 'personalizado' CHECK (source_type IN ('inventario', 'personalizado')),
+      product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+      product_code TEXT,
       type TEXT NOT NULL CHECK (type IN ('rollo', 'funda', 'lamina')),
       product TEXT NOT NULL,
       color TEXT,
       width DOUBLE PRECISION,
       length DOUBLE PRECISION,
       thickness DOUBLE PRECISION,
+      has_fuelle INTEGER NOT NULL DEFAULT 0,
+      fuelle_type TEXT CHECK (fuelle_type IN ('lateral', 'fondo', 'superior_fondo')),
+      fuelle_measure_1 DOUBLE PRECISION,
+      fuelle_measure_2 DOUBLE PRECISION,
+      has_printing INTEGER NOT NULL DEFAULT 0,
+      printing_type TEXT CHECK (printing_type IN ('serigrafia', 'flexografia')),
+      printing_side TEXT CHECK (printing_side IN ('anverso', 'reverso', 'anverso_reverso')),
+      printing_colors INTEGER,
+      printing_colors_text TEXT,
+      printing_reference TEXT,
       quantity DOUBLE PRECISION NOT NULL DEFAULT 0,
+      qty_per_bundle DOUBLE PRECISION,
+      qty_per_package DOUBLE PRECISION,
       total_kg DOUBLE PRECISION,
       unit_price DOUBLE PRECISION NOT NULL DEFAULT 0,
-      line_total DOUBLE PRECISION NOT NULL DEFAULT 0
+      line_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+      observation TEXT
     );
 
     CREATE TABLE IF NOT EXISTS people (
@@ -289,6 +305,25 @@ async function initSchema() {
   // sales_orders se crea antes que people en este script, así que el vínculo
   // a la persona (cliente) se agrega aquí, de forma idempotente.
   await exec('ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES people(id) ON DELETE SET NULL');
+
+  // Para bases ya existentes: sales_order_items fue creada antes de que existieran estos campos
+  // (origen inventario/personalizado, fuelle, impresión, cantidades por bulto/paquete y observación).
+  await exec("ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'personalizado' CHECK (source_type IN ('inventario', 'personalizado'))");
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES products(id) ON DELETE SET NULL');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS has_fuelle INTEGER NOT NULL DEFAULT 0');
+  await exec("ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS fuelle_type TEXT CHECK (fuelle_type IN ('lateral', 'fondo', 'superior_fondo'))");
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS fuelle_measure_1 DOUBLE PRECISION');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS fuelle_measure_2 DOUBLE PRECISION');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS has_printing INTEGER NOT NULL DEFAULT 0');
+  await exec("ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS printing_type TEXT CHECK (printing_type IN ('serigrafia', 'flexografia'))");
+  await exec("ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS printing_side TEXT CHECK (printing_side IN ('anverso', 'reverso', 'anverso_reverso'))");
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS printing_colors INTEGER');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS printing_reference TEXT');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS qty_per_bundle DOUBLE PRECISION');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS qty_per_package DOUBLE PRECISION');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS observation TEXT');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS product_code TEXT');
+  await exec('ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS printing_colors_text TEXT');
 
   // Para bases ya existentes: movements fue creada antes de que existiera movement_batches.
   await exec('ALTER TABLE movements ADD COLUMN IF NOT EXISTS batch_id INTEGER REFERENCES movement_batches(id) ON DELETE CASCADE');

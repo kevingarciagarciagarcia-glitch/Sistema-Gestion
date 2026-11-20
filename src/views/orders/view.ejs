@@ -26,8 +26,9 @@
   <table>
     <thead>
       <tr>
-        <th>N°</th><th>Tipo</th><th>Producto</th><th>Color</th><th>A</th><th>L</th><th>E</th>
-        <th>Cantidad</th><th>Total Kg</th><th>Precio U</th><th>Precio Total</th>
+        <th>N°</th><th>Tipo</th><th>Producto</th><th>Características</th>
+        <th>Cantidad</th><th>Fundas x Bulto</th><th>Fundas x Paquete</th><th>Total Kg</th>
+        <th>Precio U</th><th>Precio Total</th><th>Observación</th>
       </tr>
     </thead>
     <tbody>
@@ -37,14 +38,14 @@
           <td><%= it.item_number %></td>
           <td><%= typeLabels[it.type] || it.type %></td>
           <td><%= it.product %></td>
-          <td><%= it.color || '—' %></td>
-          <td><%= it.width ?? '—' %></td>
-          <td><%= it.length ?? '—' %></td>
-          <td><%= it.thickness ?? '—' %></td>
+          <td><%- it.characteristicsDetail || '—' %></td>
           <td><%= it.quantity %></td>
+          <td><%= it.qty_per_bundle ?? '—' %></td>
+          <td><%= it.qty_per_package ?? '—' %></td>
           <td><%= it.total_kg ?? '—' %></td>
           <td>$<%= it.unit_price.toFixed(2) %></td>
           <td>$<%= it.line_total.toFixed(2) %></td>
+          <td><%= it.observation || '—' %></td>
         </tr>
       <% }) %>
     </tbody>
@@ -65,11 +66,11 @@
     .card { width: 100%; }
     .card div[style*="overflow"] { overflow: visible !important; height: auto !important; max-height: none !important; width: 100% !important; }
     .card table { table-layout: fixed; width: 100% !important; }
-    .card table th, .card table td { padding: 0.2rem 0.25rem; font-size: 0.6rem; word-break: break-word; overflow-wrap: break-word; }
-    .card table th:nth-child(1), .card table td:nth-child(1) { width: 3%; }
-    .card table th:nth-child(5), .card table td:nth-child(5),
-    .card table th:nth-child(6), .card table td:nth-child(6),
-    .card table th:nth-child(7), .card table td:nth-child(7) { width: 6%; }
+    .card table th, .card table td { padding: 0.2rem 0.25rem; font-size: 0.58rem; word-break: break-word; overflow-wrap: break-word; }
+    .card table th:nth-child(1) { width: 3%; }
+    .card table th:nth-child(4) { width: 20%; }
+    .card table th:nth-child(5), .card table th:nth-child(6), .card table th:nth-child(7) { width: 7%; }
+    .card table th:nth-child(11) { width: 12%; }
   }
 </style>
 

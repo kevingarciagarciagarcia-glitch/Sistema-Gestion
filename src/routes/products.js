@@ -318,31 +318,58 @@ registerBulkRoutes('terminado');
 
 router.get('/new', requireProductPermission('agregar'), asyncHandler(async (req, res) => {
   const preselectCategoryId = req.query.category_id ? Number(req.query.category_id) : null;
+  const modal = req.query.modal === '1';
+
+  let product = null;
+  let printingColors = [];
+  if (modal) {
+    const q = req.query;
+    product = {
+      sku: q.sku || '', name: q.name || '',
+      unit_id: q.unit_id ? Number(q.unit_id) : null,
+      color: q.color || null,
+      width: q.width || null, length: q.length || null, thickness: q.thickness || null,
+      has_fuelle: q.has_fuelle === '1' ? 1 : 0,
+      fuelle_type: q.fuelle_type || null,
+      fuelle_measure_1: q.fuelle_measure_1 || null,
+      fuelle_measure_2: q.fuelle_measure_2 || null,
+      has_printing: q.has_printing === '1' ? 1 : 0,
+      printing_type: q.printing_type || null,
+      printing_side: q.printing_side || null,
+      printing_reference: q.printing_reference || '',
+      printing_colors: q.printing_colors || null
+    };
+    printingColors = q.printing_colors_prefill ? String(q.printing_colors_prefill).split(',').filter(Boolean) : [];
+  }
+
   res.render('products/form', {
-    product: null,
+    product,
     categoryOptions: await getCategoryOptions(),
     units: await getUnits(),
     colors: await getColors(),
-    selectedColors: [],
-    printingColors: [],
+    selectedColors: getSelectedColorTokens(product),
+    printingColors,
     maxPrintingColors: MAX_PRINTING_COLORS,
     conversions: Array(MAX_CONVERSIONS).fill(null),
     preselectCategoryId,
-    cancelUrl: await getProductListUrl(preselectCategoryId)
+    cancelUrl: await getProductListUrl(preselectCategoryId),
+    modal
   });
 }));
 
 router.post('/', requireProductPermission('agregar'), asyncHandler(async (req, res) => {
   const { sku, name, category_id, unit_id, quantity, min_stock, description } = req.body;
+  const modal = req.body.modal === '1';
+  const modalParam = modal ? '&modal=1' : '';
   const categoryParam = category_id ? `&category_id=${category_id}` : '';
 
   if (!sku?.trim() || !name?.trim() || !unit_id) {
-    return res.redirect(`/inventario/productos/new?error=SKU, nombre y unidad de medida son obligatorios${categoryParam}`);
+    return res.redirect(`/inventario/productos/new?error=SKU, nombre y unidad de medida son obligatorios${categoryParam}${modalParam}`);
   }
 
   const { extras, error } = parseProductExtras(req.body);
   if (error) {
-    return res.redirect(`/inventario/productos/new?error=${encodeURIComponent(error)}${categoryParam}`);
+    return res.redirect(`/inventario/productos/new?error=${encodeURIComponent(error)}${categoryParam}${modalParam}`);
   }
 
   let productId;
@@ -384,13 +411,20 @@ router.post('/', requireProductPermission('agregar'), asyncHandler(async (req, r
     );
     productId = info.lastInsertRowid;
   } catch (err) {
-    return res.redirect(`/inventario/productos/new?error=Ya existe un producto con ese SKU${categoryParam}`);
+    return res.redirect(`/inventario/productos/new?error=Ya existe un producto con ese SKU${categoryParam}${modalParam}`);
   }
 
   await saveProductConversions(productId, req.body);
   await saveProductPrintingColors(productId, extras.printingColorNames);
 
   await logActivity(req, `Creó el producto "${sku.trim()} — ${name.trim()}"`);
+
+  if (modal) {
+    const created = await getProductOr404(productId);
+    const printingColorsText = extras.printingColorNames.length ? extras.printingColorNames.join(' / ') : null;
+    return res.render('products/created', { product: created, printingColorsText });
+  }
+
   res.redirect(await getProductListUrl(category_id));
 }));
 
