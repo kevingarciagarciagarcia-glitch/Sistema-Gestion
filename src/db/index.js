@@ -272,6 +272,23 @@ async function initSchema() {
       observation TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS order_dispatches (
+      id SERIAL PRIMARY KEY,
+      order_id INTEGER NOT NULL REFERENCES sales_orders(id) ON DELETE CASCADE,
+      dispatch_date TEXT,
+      reference TEXT,
+      observation TEXT,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')
+    );
+
+    CREATE TABLE IF NOT EXISTS order_dispatch_items (
+      id SERIAL PRIMARY KEY,
+      dispatch_id INTEGER NOT NULL REFERENCES order_dispatches(id) ON DELETE CASCADE,
+      order_item_id INTEGER NOT NULL REFERENCES sales_order_items(id) ON DELETE CASCADE,
+      quantity DOUBLE PRECISION NOT NULL CHECK (quantity > 0)
+    );
+
     CREATE TABLE IF NOT EXISTS people (
       id SERIAL PRIMARY KEY,
       type TEXT NOT NULL CHECK (type IN ('natural', 'juridico', 'sin_ruc')),

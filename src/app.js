@@ -17,10 +17,12 @@ import colorsRouter from './routes/colors.js';
 import suppliesRouter from './routes/supplies.js';
 import movementsRouter from './routes/movements.js';
 import kardexRouter from './routes/kardex.js';
+import stockRouter from './routes/stock.js';
 import adminProfilesRouter from './routes/admin-profiles.js';
 import adminUsersRouter from './routes/admin-users.js';
 import adminActivityRouter from './routes/admin-activity.js';
 import ordersRouter from './routes/orders.js';
+import logisticsRouter from './routes/logistics.js';
 import sellersRouter from './routes/sellers.js';
 import peopleRouter from './routes/people.js';
 
@@ -61,11 +63,13 @@ app.use('/inventario/colores', requireAuth, colorsRouter);
 app.use('/inventario/suministros', requireAuth, suppliesRouter);
 app.use('/inventario/movimientos', requireAuth, movementsRouter);
 app.use('/inventario/kardex', requireAuth, kardexRouter);
+app.use('/inventario/stock', requireAuth, stockRouter);
 app.use('/administracion/perfiles', requireAuth, adminProfilesRouter);
 app.use('/administracion/usuarios', requireAuth, adminUsersRouter);
 app.use('/administracion/actividad', requireAuth, adminActivityRouter);
 app.use('/pedidos/vendedores', requireAuth, sellersRouter);
 app.use('/pedidos', requireAuth, ordersRouter);
+app.use('/logistica', requireAuth, logisticsRouter);
 app.use('/personas', requireAuth, peopleRouter);
 
 app.use((err, req, res, next) => {

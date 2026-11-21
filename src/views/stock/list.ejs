@@ -1,0 +1,130 @@
+<%- include('../partials/header', { currentPage: 'stock' }) %>
+
+<h1>Inventario · Stock</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <form method="get" action="/inventario/stock" class="form-grid" style="align-items: end;">
+    <div class="field" style="margin-bottom: 0;">
+      <label for="q">Buscar por código, nombre, medida o color</label>
+      <input type="text" id="q" name="q" value="<%= filters.q %>" placeholder="Ej: FDA 0001, 20x30, Blanco">
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="bodega">Bodega</label>
+      <select id="bodega" name="bodega">
+        <option value="">Todas</option>
+        <% warehouses.forEach(w => { %>
+          <option value="<%= w.id %>" <%= Number(filters.bodega) === w.id ? 'selected' : '' %>><%= w.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="fecha_corte">Fecha de corte</label>
+      <input type="date" id="fecha_corte" name="fecha_corte" value="<%= filters.fecha_corte %>">
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="categoria">Categoría</label>
+      <select id="categoria" name="categoria">
+        <option value="">Todas</option>
+        <% topCategories.forEach(c => { %>
+          <option value="<%= c.id %>" <%= Number(filters.categoria) === c.id ? 'selected' : '' %>><%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="subcategoria">Subcategoría</label>
+      <select id="subcategoria" name="subcategoria">
+        <option value="">Todas</option>
+        <% subcategories.forEach(c => { %>
+          <option value="<%= c.id %>" data-parent="<%= c.parent_id %>" <%= Number(filters.subcategoria) === c.id ? 'selected' : '' %>><%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="solo_disponible" style="display: flex; align-items: center; gap: 0.4rem;">
+        <input type="checkbox" id="solo_disponible" name="solo_disponible" value="1" <%= filters.solo_disponible ? 'checked' : '' %>>
+        Solo con stock disponible
+      </label>
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <button class="btn" type="submit">Filtrar</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <% if (items.length === 0) { %>
+    <p class="empty">No hay productos que coincidan con los filtros.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+    <table class="sortable-table">
+      <thead>
+        <tr>
+          <th data-sort>Código</th>
+          <th data-sort>Nombre</th>
+          <th data-sort>Dimensiones</th>
+          <th data-sort>Color</th>
+          <th data-sort>Color de Impresión</th>
+          <th data-sort>Unidad de Medida</th>
+          <th data-sort>Stock Actual</th>
+          <th data-sort>Stock Solicitado</th>
+          <th data-sort>Stock Disponible</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% items.forEach(it => { %>
+          <tr>
+            <td><%= it.sku %></td>
+            <td><%= it.name %></td>
+            <td><%= it.dimensions %></td>
+            <td><%- include('../partials/color-swatches', { colorText: it.color, colorHexByName }) %></td>
+            <td><%- include('../partials/color-swatches', { colorText: it.has_printing ? it.printing_colors_text : '', colorHexByName }) %></td>
+            <td><%= it.unit_name || '—' %></td>
+            <td><%= it.stock_actual %></td>
+            <td><%- it.stock_solicitado > 0 ? `<span class="badge low">${it.stock_solicitado}</span>` : it.stock_solicitado %></td>
+            <td><%- it.stock_disponible < 0 ? `<span class="badge low">${it.stock_disponible}</span>` : it.stock_disponible %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } %>
+</div>
+
+<p class="muted" style="font-size: 0.85rem;">
+  Stock Solicitado refleja la cantidad pendiente de despacho en Órdenes de Pedido (bloqueada hasta que se registre el despacho en Logística) y es independiente de la fecha de corte seleccionada.
+</p>
+
+<script>
+  (function () {
+    var categoriaSel = document.getElementById('categoria');
+    var subcategoriaSel = document.getElementById('subcategoria');
+    if (!categoriaSel || !subcategoriaSel) return;
+    var allOptions = Array.from(subcategoriaSel.options).slice(1);
+
+    function applyFilter() {
+      var parent = categoriaSel.value;
+      var currentValue = subcategoriaSel.value;
+      subcategoriaSel.querySelectorAll('option[data-parent]').forEach((opt) => opt.remove());
+      allOptions.forEach((opt) => {
+        if (!parent || opt.dataset.parent === parent) {
+          subcategoriaSel.appendChild(opt);
+        }
+      });
+      if (!Array.from(subcategoriaSel.options).some((o) => o.value === currentValue)) {
+        subcategoriaSel.value = '';
+      } else {
+        subcategoriaSel.value = currentValue;
+      }
+    }
+
+    categoriaSel.addEventListener('change', applyFilter);
+    applyFilter();
+  })();
+</script>
+
+<script src="/js/table-sort.js"></script>
+<%- include('../partials/footer') %>

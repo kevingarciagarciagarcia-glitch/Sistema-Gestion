@@ -1,0 +1,160 @@
+<%- include('../partials/logistics-header', { currentPage: 'logistica' }) %>
+
+<div class="toolbar">
+  <h1 style="margin: 0;">Despacho · Orden de Pedido #<%= order.id %></h1>
+  <div style="display: flex; gap: 0.5rem;">
+    <span class="badge <%= order.status %>" style="align-self: center;"><%= STATUS_LABELS[order.status] %></span>
+    <a class="btn secondary" href="/logistica">Volver</a>
+  </div>
+</div>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+
+<div class="card">
+  <div class="form-grid" style="margin-bottom: 1rem;">
+    <div><span class="muted">Cliente</span><br><strong><%= order.client %></strong></div>
+    <div><span class="muted">Fecha de Pedido</span><br><strong><%= order.order_date || '—' %></strong></div>
+    <div><span class="muted">Fecha de Entrega</span><br><strong><%= order.delivery_date || '—' %></strong></div>
+    <div><span class="muted">Vendedor</span><br><strong><%= order.seller_name || '—' %></strong></div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+    <div class="progress-track" style="flex: 1;">
+      <div class="progress-fill <%= order.status %>" style="width: <%= order.progressPct %>%;"></div>
+    </div>
+    <span class="muted"><%= order.progressPct %>%</span>
+  </div>
+  <div class="muted" style="font-size: 0.85rem;">
+    Pedido: <strong><%= order.totalRequested %></strong> ·
+    Despachado: <strong><%= order.totalDispatched %></strong> ·
+    Saldo: <strong><%= order.pendingBalance %></strong>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top: 0;">Registrar despacho</h2>
+  <form method="post" action="/logistica/<%= order.id %>/despachar" id="dispatch-form">
+    <div class="form-grid" style="margin-bottom: 1rem;">
+      <div class="field">
+        <label for="dispatch_date">Fecha de despacho</label>
+        <input type="date" id="dispatch_date" name="dispatch_date">
+      </div>
+      <div class="field">
+        <label for="reference">Referencia (guía / transportista / vehículo)</label>
+        <input type="text" id="reference" name="reference" placeholder="Ej: Guía 00123 - Transportes XYZ - Placa ABC-1234">
+      </div>
+      <div class="field">
+        <label for="observation">Observación</label>
+        <input type="text" id="observation" name="observation">
+      </div>
+    </div>
+
+    <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>N°</th><th>Tipo</th><th>Producto</th><th>Color</th><th>Medida</th>
+          <th>Pedido</th><th>Despachado</th><th>Saldo</th><th>Despachar ahora</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% order.items.forEach((it, idx) => { %>
+          <tr>
+            <td><%= it.item_number %></td>
+            <td><%= typeLabels[it.type] || it.type %></td>
+            <td><%= it.product %></td>
+            <td><%- include('../partials/color-swatches', { colorText: it.color, colorHexByName }) %></td>
+            <td><%= (it.width == null && it.length == null) ? '—' : `${it.width ?? '—'}x${it.length ?? '—'}` %></td>
+            <td><%= it.quantity %></td>
+            <td><%= it.dispatched %></td>
+            <td class="item-balance" data-balance="<%= it.pendingBalance %>"><%= it.pendingBalance %></td>
+            <td>
+              <input type="hidden" name="items[<%= idx %>][order_item_id]" value="<%= it.id %>">
+              <input type="number" step="any" min="0" class="dispatch-qty-input" name="items[<%= idx %>][quantity]" style="width: 100px;">
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+
+    <button class="btn" type="submit" style="margin-top: 1rem;">Registrar despacho</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2 style="margin-top: 0;">Historial de despachos</h2>
+  <% if (dispatches.length === 0) { %>
+    <p class="empty">Todavía no se han registrado despachos para esta orden.</p>
+  <% } else { %>
+    <% dispatches.forEach(d => { %>
+      <div class="dispatch-entry">
+        <div class="toolbar" style="margin-bottom: 0.5rem;">
+          <div>
+            <strong><%= d.dispatch_date || d.created_at %></strong>
+            <span class="muted"> · <%= d.reference || 'Sin referencia' %></span>
+          </div>
+          <form class="inline" method="post" action="/logistica/<%= order.id %>/despachos/<%= d.id %>/delete" onsubmit="return confirm('¿Eliminar este despacho? Esto reducirá la cantidad despachada de la orden.');">
+            <button class="btn danger" type="submit" style="padding: 0.3rem 0.6rem;">Eliminar</button>
+          </form>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Producto</th><th>Cantidad despachada</th></tr>
+          </thead>
+          <tbody>
+            <% d.items.forEach(di => { %>
+              <tr><td><%= di.product %></td><td><%= di.quantity %></td></tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <% if (d.observation) { %><p class="muted" style="margin: 0.5rem 0 0;">Observación: <%= d.observation %></p><% } %>
+        <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.8rem;">Registrado por <%= d.created_by_full_name || d.created_by_username || '—' %></p>
+      </div>
+    <% }) %>
+  <% } %>
+</div>
+
+<style>
+  .progress-track { background: var(--bg); border-radius: 999px; height: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 999px; }
+  .progress-fill.pendiente { background: var(--muted); }
+  .progress-fill.parcial { background: var(--warning); }
+  .progress-fill.completo { background: var(--success); }
+  .badge.pendiente { background: #fee2e2; color: var(--danger); }
+  .badge.parcial { background: #fef3c7; color: var(--warning); }
+  .badge.completo { background: #dcfce7; color: var(--success); }
+  .dispatch-entry { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+  .dispatch-entry:last-child { margin-bottom: 0; }
+</style>
+
+<script>
+  document.getElementById('dispatch-form').addEventListener('submit', (e) => {
+    const rows = document.querySelectorAll('.dispatch-qty-input');
+    let anyQty = false;
+    let exceedsBalance = false;
+
+    rows.forEach((input) => {
+      const qty = parseFloat(input.value) || 0;
+      if (qty <= 0) return;
+      anyQty = true;
+      const balance = parseFloat(input.closest('tr').querySelector('.item-balance').dataset.balance) || 0;
+      if (qty > balance) exceedsBalance = true;
+    });
+
+    if (!anyQty) {
+      e.preventDefault();
+      alert('Ingresa al menos una cantidad a despachar.');
+      return;
+    }
+
+    if (exceedsBalance) {
+      const confirmed = confirm('Una o más cantidades superan el saldo pendiente del ítem. ¿Deseas continuar de todas formas?');
+      if (!confirmed) e.preventDefault();
+    }
+  });
+</script>
+
+<%- include('../partials/footer') %>

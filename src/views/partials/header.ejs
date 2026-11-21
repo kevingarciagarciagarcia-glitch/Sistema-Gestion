@@ -58,6 +58,9 @@
         <% if (hasPermission('kardex', 'consultar')) { %>
           <a href="/inventario/kardex" class="<%= currentPage === 'kardex' ? 'active' : '' %>">Kardex</a>
         <% } %>
+        <% if (hasPermission('stock', 'consultar')) { %>
+          <a href="/inventario/stock" class="<%= currentPage === 'stock' ? 'active' : '' %>">Stock</a>
+        <% } %>
       </nav>
       <%- include('userbox') %>
     </aside>

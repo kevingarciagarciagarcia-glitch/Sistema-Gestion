@@ -23,6 +23,7 @@ export const MODULES = [
       { key: 'colores', label: 'Colores', url: '/inventario/colores', actions: ['consultar', 'agregar', 'eliminar'] },
       { key: 'movimientos', label: 'Movimientos', url: '/inventario/movimientos', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] },
       { key: 'kardex', label: 'Kardex', url: '/inventario/kardex', actions: ['consultar'] },
+      { key: 'stock', label: 'Stock', url: '/inventario/stock', actions: ['consultar'] },
       { key: 'suministros', label: 'Suministros Varios', url: '/inventario/suministros', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] }
     ]
   },
@@ -35,6 +36,16 @@ export const MODULES = [
     windows: [
       { key: 'ordenes', label: 'Órdenes de Pedido', url: '/pedidos', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] },
       { key: 'vendedores', label: 'Vendedores', url: '/pedidos/vendedores', actions: ['consultar', 'agregar', 'eliminar'] }
+    ]
+  },
+  {
+    key: 'logistica',
+    label: 'Logística',
+    icon: '🚚',
+    description: 'Despacho y seguimiento del estado de entrega de las órdenes de pedido.',
+    homeUrl: '/logistica',
+    windows: [
+      { key: 'logistica', label: 'Despachos', url: '/logistica', actions: ['consultar', 'agregar', 'eliminar'] }
     ]
   },
   {
