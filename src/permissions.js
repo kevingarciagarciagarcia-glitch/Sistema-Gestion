@@ -24,6 +24,9 @@ export const MODULES = [
       { key: 'movimientos', label: 'Movimientos', url: '/inventario/movimientos', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] },
       { key: 'kardex', label: 'Kardex', url: '/inventario/kardex', actions: ['consultar'] },
       { key: 'stock', label: 'Stock', url: '/inventario/stock', actions: ['consultar'] },
+      { key: 'stock_materia_prima', label: 'Stock - Materia Prima', url: '/inventario/stock', actions: ['consultar'] },
+      { key: 'stock_produccion', label: 'Stock - Producción', url: '/inventario/stock', actions: ['consultar'] },
+      { key: 'stock_terminado', label: 'Stock - Producto Terminado', url: '/inventario/stock', actions: ['consultar'] },
       { key: 'suministros', label: 'Suministros Varios', url: '/inventario/suministros', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] }
     ]
   },

@@ -1,10 +1,16 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { requirePermission } from '../auth.js';
+import { requirePermission, hasPermission } from '../auth.js';
 import { asyncHandler } from '../asyncHandler.js';
 import { getColorHexMap } from '../colorPalette.js';
 
 const router = Router();
+
+const FIXED_CATEGORY_WINDOW_KEYS = {
+  'Materia Prima': 'stock_materia_prima',
+  'Producto en Producción': 'stock_produccion',
+  'Producto Terminado': 'stock_terminado'
+};
 
 function round(num) {
   return Math.round(num * 100) / 100;
@@ -18,9 +24,24 @@ function buildDimensions(p) {
 
 router.get('/', requirePermission('stock', 'consultar'), asyncHandler(async (req, res) => {
   const warehouses = await db.prepare('SELECT * FROM warehouses ORDER BY name').all();
-  const categories = await db.prepare('SELECT * FROM categories ORDER BY name').all();
-  const topCategories = categories.filter((c) => !c.parent_id);
-  const subcategories = categories.filter((c) => c.parent_id);
+  const allCategories = await db.prepare('SELECT * FROM categories ORDER BY name').all();
+  const suppliesCategory = allCategories.find((c) => !c.parent_id && c.name === 'Suministros Varios');
+  const categories = allCategories.filter((c) => !suppliesCategory
+    || (c.id !== suppliesCategory.id && c.parent_id !== suppliesCategory.id));
+  const allTopCategories = categories.filter((c) => !c.parent_id);
+  const allSubcategories = categories.filter((c) => c.parent_id);
+
+  const isTopCategoryAllowed = (top) => {
+    const windowKey = FIXED_CATEGORY_WINDOW_KEYS[top.name];
+    return !windowKey || hasPermission(req.user, windowKey, 'consultar');
+  };
+  const topCategories = allTopCategories.filter(isTopCategoryAllowed);
+  const subcategories = allSubcategories.filter((c) => topCategories.some((t) => t.id === c.parent_id));
+  const fullCategoryAccess = topCategories.length === allTopCategories.length;
+  const allowedCategoryIds = topCategories.flatMap((top) => [
+    top.id,
+    ...allSubcategories.filter((s) => s.parent_id === top.id).map((s) => s.id)
+  ]);
 
   const { today } = await db.prepare(`
     SELECT to_char(now() AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') AS today
@@ -28,8 +49,10 @@ router.get('/', requirePermission('stock', 'consultar'), asyncHandler(async (req
 
   const warehouseId = req.query.bodega ? Number(req.query.bodega) : null;
   const cutoff = req.query.fecha_corte?.trim() || today;
-  const categoryId = req.query.categoria ? Number(req.query.categoria) : null;
-  const subcategoryId = req.query.subcategoria ? Number(req.query.subcategoria) : null;
+  const requestedSubcategoryId = req.query.subcategoria ? Number(req.query.subcategoria) : null;
+  const requestedCategoryId = req.query.categoria ? Number(req.query.categoria) : null;
+  const subcategoryId = subcategories.some((c) => c.id === requestedSubcategoryId) ? requestedSubcategoryId : null;
+  const categoryId = topCategories.some((c) => c.id === requestedCategoryId) ? requestedCategoryId : null;
   const search = req.query.q?.trim() || '';
   const onlyAvailable = req.query.solo_disponible === '1';
 
@@ -39,6 +62,12 @@ router.get('/', requirePermission('stock', 'consultar'), asyncHandler(async (req
   } else if (categoryId) {
     const subIds = subcategories.filter((c) => c.parent_id === categoryId).map((c) => c.id);
     categoryIds = [categoryId, ...subIds];
+  }
+
+  if (!fullCategoryAccess) {
+    categoryIds = categoryIds
+      ? categoryIds.filter((id) => allowedCategoryIds.includes(id))
+      : allowedCategoryIds;
   }
 
   const mvParams = [];
@@ -73,7 +102,9 @@ router.get('/', requirePermission('stock', 'consultar'), asyncHandler(async (req
 
   const whereConditions = ['1 = 1'];
   const whereParams = [];
-  if (categoryIds) {
+  if (categoryIds && categoryIds.length === 0) {
+    whereConditions.push('0 = 1');
+  } else if (categoryIds) {
     whereConditions.push(`p.category_id IN (${categoryIds.map(() => '?').join(', ')})`);
     whereParams.push(...categoryIds);
   }
