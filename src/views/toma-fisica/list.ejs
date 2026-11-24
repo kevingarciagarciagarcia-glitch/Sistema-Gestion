@@ -1,0 +1,167 @@
+<%- include('../partials/header', { currentPage: 'toma_fisica' }) %>
+
+<h1>Inventario · Toma Física</h1>
+
+<% if (query.error) { %>
+  <div class="alert error"><%= query.error %></div>
+<% } %>
+<% if (query.ok === '1') { %>
+  <div class="alert" style="background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;">
+    Toma física aplicada correctamente.
+    <% if (query.lote_in) { %> · <a href="/inventario/movimientos/lote/<%= query.lote_in %>">Ver lote de incrementos</a><% } %>
+    <% if (query.lote_out) { %> · <a href="/inventario/movimientos/lote/<%= query.lote_out %>">Ver lote de disminuciones</a><% } %>
+  </div>
+<% } %>
+
+<div class="card">
+  <form method="get" action="/inventario/toma-fisica" class="form-grid" style="align-items: end;">
+    <div class="field" style="margin-bottom: 0;">
+      <label for="bodega">Bodega</label>
+      <select id="bodega" name="bodega" required>
+        <option value="">Selecciona una bodega</option>
+        <% warehouses.forEach(w => { %>
+          <option value="<%= w.id %>" <%= Number(filters.bodega) === w.id ? 'selected' : '' %>><%= w.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="q">Buscar por código, nombre, medida o color</label>
+      <input type="text" id="q" name="q" value="<%= filters.q %>" placeholder="Ej: FDA 0001, 20x30, Blanco">
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="categoria">Categoría</label>
+      <select id="categoria" name="categoria">
+        <option value="">Todas</option>
+        <% topCategories.forEach(c => { %>
+          <option value="<%= c.id %>" <%= Number(filters.categoria) === c.id ? 'selected' : '' %>><%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <label for="subcategoria">Subcategoría</label>
+      <select id="subcategoria" name="subcategoria">
+        <option value="">Todas</option>
+        <% subcategories.forEach(c => { %>
+          <option value="<%= c.id %>" data-parent="<%= c.parent_id %>" <%= Number(filters.subcategoria) === c.id ? 'selected' : '' %>><%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom: 0;">
+      <button class="btn" type="submit">Filtrar</button>
+    </div>
+  </form>
+</div>
+
+<% if (!filters.bodega) { %>
+  <div class="card">
+    <p class="empty">Selecciona una bodega para iniciar la toma física.</p>
+  </div>
+<% } else { %>
+  <div class="card">
+    <form method="post" action="/inventario/toma-fisica/aplicar" id="toma-fisica-form" onsubmit="return confirm('¿Aplicar los ajustes de inventario según lo contado? Esta acción actualizará el stock de inmediato.');">
+      <input type="hidden" name="bodega" value="<%= filters.bodega %>">
+      <input type="hidden" name="categoria" value="<%= filters.categoria %>">
+      <input type="hidden" name="subcategoria" value="<%= filters.subcategoria %>">
+      <input type="hidden" name="q" value="<%= filters.q %>">
+
+      <% if (items.length === 0) { %>
+        <p class="empty">No hay productos que coincidan con los filtros.</p>
+      <% } else { %>
+        <div class="field" style="max-width: 420px;">
+          <label for="nota">Nota (opcional)</label>
+          <input type="text" id="nota" name="nota" placeholder="Ej: Toma física de fin de mes">
+        </div>
+        <div style="overflow-x: auto;">
+        <table class="sortable-table">
+          <thead>
+            <tr>
+              <th data-sort>Código</th>
+              <th data-sort>Nombre</th>
+              <th data-sort>Dimensiones</th>
+              <th data-sort>Color</th>
+              <th data-sort>Color de Impresión</th>
+              <th data-sort>Unidad de Medida</th>
+              <th data-sort>Stock Sistema</th>
+              <th>Cantidad Contada</th>
+              <th>Diferencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% items.forEach(it => { %>
+              <tr>
+                <td><%= it.sku %></td>
+                <td><%= it.name %></td>
+                <td><%= it.dimensions %></td>
+                <td><%- include('../partials/color-swatches', { colorText: it.color, colorHexByName }) %></td>
+                <td><%- include('../partials/color-swatches', { colorText: it.has_printing ? it.printing_colors_text : '', colorHexByName }) %></td>
+                <td><%= it.unit_name || '—' %></td>
+                <td class="stock-sistema"><%= it.stock_sistema %></td>
+                <td>
+                  <input type="number" class="contada-input" name="contada[<%= it.id %>]" value="<%= it.stock_sistema %>"
+                         min="0" step="any" data-sistema="<%= it.stock_sistema %>" oninput="tomaFisicaUpdateDiff(this)">
+                </td>
+                <td class="diff-cell">0</td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        </div>
+        <div style="margin-top: 1rem;">
+          <button class="btn" type="submit">Aplicar toma física</button>
+        </div>
+      <% } %>
+    </form>
+  </div>
+<% } %>
+
+<p class="muted" style="font-size: 0.85rem;">
+  La cantidad contada aparece inicialmente igual al stock del sistema. Edita solo los productos donde el conteo físico sea distinto; al aplicar, se registran movimientos de ajuste (entrada o salida) en la bodega seleccionada y el inventario se actualiza de inmediato.
+</p>
+
+<script>
+  (function () {
+    var categoriaSel = document.getElementById('categoria');
+    var subcategoriaSel = document.getElementById('subcategoria');
+    if (!categoriaSel || !subcategoriaSel) return;
+    var allOptions = Array.from(subcategoriaSel.options).slice(1);
+
+    function applyFilter() {
+      var parent = categoriaSel.value;
+      var currentValue = subcategoriaSel.value;
+      subcategoriaSel.querySelectorAll('option[data-parent]').forEach((opt) => opt.remove());
+      allOptions.forEach((opt) => {
+        if (!parent || opt.dataset.parent === parent) {
+          subcategoriaSel.appendChild(opt);
+        }
+      });
+      if (!Array.from(subcategoriaSel.options).some((o) => o.value === currentValue)) {
+        subcategoriaSel.value = '';
+      } else {
+        subcategoriaSel.value = currentValue;
+      }
+    }
+
+    categoriaSel.addEventListener('change', applyFilter);
+    applyFilter();
+  })();
+
+  function tomaFisicaUpdateDiff(input) {
+    var row = input.closest('tr');
+    var diffCell = row.querySelector('.diff-cell');
+    var sistema = Number(input.dataset.sistema);
+    var contada = Number(input.value);
+    if (Number.isNaN(contada)) {
+      diffCell.textContent = '—';
+      diffCell.style.color = '';
+      return;
+    }
+    var diff = Math.round((contada - sistema) * 10000) / 10000;
+    diffCell.textContent = diff;
+    diffCell.style.color = diff > 0 ? 'var(--color-success, green)' : diff < 0 ? 'var(--color-danger, #c0392b)' : '';
+  }
+
+  document.querySelectorAll('.contada-input').forEach(tomaFisicaUpdateDiff);
+</script>
+
+<script src="/js/table-sort.js"></script>
+<%- include('../partials/footer') %>

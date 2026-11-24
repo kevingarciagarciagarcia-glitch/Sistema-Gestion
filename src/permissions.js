@@ -27,6 +27,7 @@ export const MODULES = [
       { key: 'stock_materia_prima', label: 'Stock - Materia Prima', url: '/inventario/stock', actions: ['consultar'] },
       { key: 'stock_produccion', label: 'Stock - Producción', url: '/inventario/stock', actions: ['consultar'] },
       { key: 'stock_terminado', label: 'Stock - Producto Terminado', url: '/inventario/stock', actions: ['consultar'] },
+      { key: 'toma_fisica', label: 'Toma Física', url: '/inventario/toma-fisica', actions: ['consultar', 'agregar'] },
       { key: 'suministros', label: 'Suministros Varios', url: '/inventario/suministros', actions: ['consultar', 'agregar', 'modificar', 'eliminar'] }
     ]
   },

@@ -61,6 +61,9 @@
         <% if (hasPermission('stock', 'consultar')) { %>
           <a href="/inventario/stock" class="<%= currentPage === 'stock' ? 'active' : '' %>">Stock</a>
         <% } %>
+        <% if (hasPermission('toma_fisica', 'consultar')) { %>
+          <a href="/inventario/toma-fisica" class="<%= currentPage === 'toma_fisica' ? 'active' : '' %>">Toma Física</a>
+        <% } %>
       </nav>
       <%- include('userbox') %>
     </aside>
