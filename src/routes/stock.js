@@ -54,6 +54,8 @@ router.get('/', requirePermission('stock', 'consultar'), asyncHandler(async (req
   const subcategoryId = subcategories.some((c) => c.id === requestedSubcategoryId) ? requestedSubcategoryId : null;
   const categoryId = topCategories.some((c) => c.id === requestedCategoryId) ? requestedCategoryId : null;
   const search = req.query.q?.trim() || '';
+  const measures = req.query.medidas?.trim() || '';
+  const color = req.query.color?.trim() || '';
   const onlyAvailable = req.query.solo_disponible === '1';
 
   let categoryIds = null;
@@ -109,13 +111,16 @@ router.get('/', requirePermission('stock', 'consultar'), asyncHandler(async (req
     whereParams.push(...categoryIds);
   }
   if (search) {
-    whereConditions.push(`(
-      p.name ILIKE ?
-      OR p.sku ILIKE ?
-      OR p.color ILIKE ?
-      OR (COALESCE(p.width::text, '') || 'x' || COALESCE(p.length::text, '')) ILIKE ?
-    )`);
-    whereParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search.replace(/x/gi, 'x')}%`);
+    whereConditions.push('(p.name ILIKE ? OR p.sku ILIKE ?)');
+    whereParams.push(`%${search}%`, `%${search}%`);
+  }
+  if (measures) {
+    whereConditions.push(`(COALESCE(p.width::text, '') || 'x' || COALESCE(p.length::text, '')) ILIKE ?`);
+    whereParams.push(`%${measures.replace(/x/gi, 'x')}%`);
+  }
+  if (color) {
+    whereConditions.push('p.color ILIKE ?');
+    whereParams.push(`%${color}%`);
   }
 
   const items = await db.prepare(`
@@ -167,6 +172,8 @@ router.get('/', requirePermission('stock', 'consultar'), asyncHandler(async (req
       categoria: categoryId || '',
       subcategoria: subcategoryId || '',
       q: search,
+      medidas: measures,
+      color,
       solo_disponible: onlyAvailable
     },
     colorHexByName: await getColorHexMap()

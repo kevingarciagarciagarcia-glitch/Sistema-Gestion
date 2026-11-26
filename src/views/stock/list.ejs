@@ -8,9 +8,15 @@
 
 <div class="card">
   <form method="get" action="/inventario/stock" class="form-grid" style="align-items: end;">
-    <div class="field" style="margin-bottom: 0;">
-      <label for="q">Buscar por código, nombre, medida o color</label>
-      <input type="text" id="q" name="q" value="<%= filters.q %>" placeholder="Ej: FDA 0001, 20x30, Blanco">
+    <div class="field" style="margin-bottom: 0; grid-column: 1 / -1;">
+      <label for="q">Buscar por nombre o código</label>
+      <div class="search-box">
+        <input type="text" id="q" class="search-main" name="q" placeholder="Buscar por nombre o código..." value="<%= filters.q %>">
+        <div class="search-extra">
+          <input type="text" class="search-filter" name="medidas" placeholder="Medidas (20X30)" value="<%= filters.medidas %>">
+          <input type="text" class="search-filter" name="color" placeholder="Color" value="<%= filters.color %>">
+        </div>
+      </div>
     </div>
     <div class="field" style="margin-bottom: 0;">
       <label for="bodega">Bodega</label>
