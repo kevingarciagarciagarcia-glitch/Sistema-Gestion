@@ -2,11 +2,14 @@
 
 <h1><%= batch ? `Editar hoja de movimiento #${batch.id}` : 'Nuevo movimiento' %></h1>
 
-<% if (query.error) { %>
+<% if (formError) { %>
+  <div class="alert error"><%= formError %></div>
+<% } else if (query.error) { %>
   <div class="alert error"><%= query.error %></div>
 <% } %>
 
 <% const initial = batch || prefill || {}; %>
+<% const errFields = errorFields || []; %>
 
 <% if (importWarnings) { %>
   <div class="alert" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">
@@ -27,7 +30,7 @@
     <div class="form-grid" style="margin-bottom: 1rem;">
       <div class="field">
         <label for="type">Tipo de movimiento</label>
-        <select id="type" name="type" required>
+        <select id="type" name="type" required class="<%= errFields.includes('type') ? 'input-error' : '' %>">
           <option value="in" <%= initial.type === 'in' ? 'selected' : '' %>>Entrada</option>
           <option value="out" <%= initial.type === 'out' ? 'selected' : '' %>>Salida</option>
           <option value="traspaso" id="traspaso-option" <%= initial.type === 'traspaso' ? 'selected' : '' %>>Traspaso entre bodegas</option>
@@ -35,7 +38,7 @@
       </div>
       <div class="field">
         <label for="load_type">Tipo de Carga</label>
-        <select id="load_type" name="load_type" required>
+        <select id="load_type" name="load_type" required class="<%= errFields.includes('load_type') ? 'input-error' : '' %>">
           <option value="" disabled <%= !initial.load_type ? 'selected' : '' %>>Selecciona...</option>
           <option value="materia_prima" <%= initial.load_type === 'materia_prima' ? 'selected' : '' %>>Materia Prima</option>
           <option value="terminado" <%= initial.load_type === 'terminado' ? 'selected' : '' %>>Producto Terminado</option>
@@ -43,7 +46,7 @@
       </div>
       <div class="field" id="single-warehouse-field">
         <label for="warehouse_id">Bodega</label>
-        <select id="warehouse_id" name="warehouse_id">
+        <select id="warehouse_id" name="warehouse_id" class="<%= errFields.includes('warehouse_id') ? 'input-error' : '' %>">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
             <option value="<%= w.id %>" <%= String(initial.warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
@@ -52,7 +55,7 @@
       </div>
       <div class="field" id="from-warehouse-field" style="display: none;">
         <label for="from_warehouse_id">Bodega origen</label>
-        <select id="from_warehouse_id" name="from_warehouse_id">
+        <select id="from_warehouse_id" name="from_warehouse_id" class="<%= errFields.includes('from_warehouse_id') ? 'input-error' : '' %>">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
             <option value="<%= w.id %>" <%= String(initial.from_warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
@@ -61,7 +64,7 @@
       </div>
       <div class="field" id="to-warehouse-field" style="display: none;">
         <label for="to_warehouse_id">Bodega destino</label>
-        <select id="to_warehouse_id" name="to_warehouse_id">
+        <select id="to_warehouse_id" name="to_warehouse_id" class="<%= errFields.includes('to_warehouse_id') ? 'input-error' : '' %>">
           <option value="">Selecciona una bodega</option>
           <% warehouses.forEach(w => { %>
             <option value="<%= w.id %>" <%= String(initial.to_warehouse_id || '') === String(w.id) ? 'selected' : '' %>><%= w.name %></option>
@@ -104,6 +107,7 @@
   const ITEM_UNIT_OPTIONS = <%- JSON.stringify(itemUnitOptions) %>;
   const ITEMS = <%- JSON.stringify(items) %>;
   const EXISTING_LINES = <%- JSON.stringify(existingLines || []) %>;
+  const ERROR_ITEM_KEY = <%- JSON.stringify(errorItemKey || null) %>;
 
   const typeSelect = document.getElementById('type');
   const traspasoOption = document.getElementById('traspaso-option');
@@ -309,6 +313,7 @@
   toggleWarehouseFields();
 
   if (EXISTING_LINES.length > 0) {
+    let errorRow = null;
     EXISTING_LINES.forEach((line) => {
       addRow();
       const row = itemsBody.lastElementChild;
@@ -319,7 +324,14 @@
       populateUnitsForRow(row);
       row.querySelector('.unit-select').value = line.unitId;
       row.querySelector('.qty-input').value = line.quantity;
+      if (ERROR_ITEM_KEY && `${line.itemType}:${line.itemId}` === ERROR_ITEM_KEY) {
+        row.querySelector('.item-search').classList.add('input-error');
+        row.querySelector('.qty-input').classList.add('input-error');
+        row.querySelector('.unit-select').classList.add('input-error');
+        errorRow = row;
+      }
     });
+    if (errorRow) errorRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } else {
     addRow();
   }

@@ -282,16 +282,18 @@ function parseLinesFromBody(body, type) {
   for (const raw of rawItems) {
     if (!raw.item_type || !raw.item_id) continue;
 
+    const errorItemKey = `${raw.item_type}:${raw.item_id}`;
+
     if (!['product', 'supply'].includes(raw.item_type)) {
-      return { error: 'Hay un elemento inválido en una de las líneas' };
+      return { error: 'Hay un elemento inválido en una de las líneas', errorItemKey };
     }
     if (raw.item_type === 'supply' && type === 'traspaso') {
-      return { error: 'Los suministros solo admiten entradas y salidas' };
+      return { error: 'Los suministros solo admiten entradas y salidas', errorItemKey };
     }
 
     const enteredQty = Number(raw.quantity);
     if (!raw.unit_id || !enteredQty || enteredQty <= 0) {
-      return { error: 'Completa la cantidad y la unidad de cada línea agregada' };
+      return { error: 'Completa la cantidad y la unidad de cada línea agregada', errorItemKey };
     }
 
     lines.push({ item_type: raw.item_type, item_id: raw.item_id, quantity: enteredQty, unit_id: raw.unit_id });
@@ -305,7 +307,7 @@ function parseLinesFromBody(body, type) {
   for (const line of lines) {
     const key = `${line.item_type}:${line.item_id}`;
     if (seen.has(key)) {
-      return { error: 'Un mismo producto o suministro aparece en más de una línea: suma la cantidad en una sola línea' };
+      return { error: 'Un mismo producto o suministro aparece en más de una línea: suma la cantidad en una sola línea', errorItemKey: key };
     }
     seen.add(key);
   }
@@ -321,8 +323,10 @@ async function resolveLines(executor, lines, type, { warehouse_id, from_warehous
       ? await executor.prepare('SELECT * FROM products WHERE id = ?').get(line.item_id)
       : await executor.prepare('SELECT * FROM supplies WHERE id = ?').get(line.item_id);
 
+    const errorItemKey = `${line.item_type}:${line.item_id}`;
+
     if (!item) {
-      return { error: 'Uno de los elementos no fue encontrado' };
+      return { error: 'Uno de los elementos no fue encontrado', errorItemKey };
     }
 
     const label = `${item.sku || item.code} — ${item.name || item.description}`;
@@ -332,7 +336,7 @@ async function resolveLines(executor, lines, type, { warehouse_id, from_warehous
       : (Number(line.unit_id) === Number(item.unit_id) ? 1 : null);
 
     if (factor === null) {
-      return { error: `No existe una conversión de unidad para "${label}"` };
+      return { error: `No existe una conversión de unidad para "${label}"`, errorItemKey };
     }
 
     const convertedQty = round(line.quantity * factor);
@@ -340,10 +344,10 @@ async function resolveLines(executor, lines, type, { warehouse_id, from_warehous
     if (type === 'traspaso') {
       const stockAtOrigin = await getWarehouseStock(executor, line.item_type, item.id, from_warehouse_id);
       if (convertedQty > stockAtOrigin) {
-        return { error: `No hay suficiente stock en la bodega origen para "${label}"` };
+        return { error: `No hay suficiente stock en la bodega origen para "${label}"`, errorItemKey };
       }
     } else if (type === 'out' && convertedQty > item.quantity) {
-      return { error: `No hay suficiente stock para la salida de "${label}"` };
+      return { error: `No hay suficiente stock para la salida de "${label}"`, errorItemKey };
     }
 
     resolved.push({ ...line, item, convertedQty });
@@ -582,7 +586,7 @@ router.get('/', requirePermission('movimientos', 'consultar'), asyncHandler(asyn
 
 router.get('/new', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
   const { items, warehouses, itemUnitOptions } = await getItemsFormData();
-  res.render('movements/form', { items, warehouses, itemUnitOptions, batch: null, existingLines: [], prefill: null, importWarnings: null });
+  res.render('movements/form', { items, warehouses, itemUnitOptions, batch: null, existingLines: [], prefill: null, importWarnings: null, formError: null, errorItemKey: null, errorFields: [] });
 }));
 
 router.get('/plantilla', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
@@ -644,41 +648,83 @@ router.post('/importar', requirePermission('movimientos', 'agregar'), upload.sin
     batch: null,
     existingLines,
     prefill: { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason },
-    importWarnings: warnings
+    importWarnings: warnings,
+    formError: null,
+    errorItemKey: null,
+    errorFields: []
   });
 }));
+
+function buildExistingLinesForRerender(rawItemsObj, items) {
+  const rawItems = rawItemsObj ? Object.values(rawItemsObj) : [];
+  return rawItems
+    .filter((raw) => raw.item_type && raw.item_id)
+    .map((raw) => {
+      const found = items.find((it) => it.type === raw.item_type && String(it.id) === String(raw.item_id));
+      const typeLabel = raw.item_type === 'product' ? 'Producto' : 'Suministro';
+      return {
+        itemType: raw.item_type,
+        itemId: raw.item_id,
+        label: found ? `[${typeLabel}] ${found.sku} — ${found.name}` : '',
+        detail: found ? found.detail : '',
+        unitId: raw.unit_id || '',
+        quantity: raw.quantity || ''
+      };
+    });
+}
+
+async function renderNewMovementError(req, res, message, { errorItemKey = null, errorFields = [] } = {}) {
+  const { items, warehouses, itemUnitOptions } = await getItemsFormData();
+  const { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason, load_type } = req.body;
+  const existingLines = buildExistingLinesForRerender(req.body.items, items);
+
+  res.render('movements/form', {
+    items, warehouses, itemUnitOptions,
+    batch: null,
+    existingLines,
+    prefill: { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason, load_type },
+    importWarnings: null,
+    formError: message,
+    errorItemKey,
+    errorFields
+  });
+}
 
 router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async (req, res) => {
   const { type, warehouse_id, from_warehouse_id, to_warehouse_id, reason, load_type } = req.body;
 
   if (!['in', 'out', 'traspaso'].includes(type)) {
-    return res.redirect('/inventario/movimientos/new?error=Selecciona el tipo de movimiento');
+    return renderNewMovementError(req, res, 'Selecciona el tipo de movimiento', { errorFields: ['type'] });
   }
 
   if (!['materia_prima', 'terminado'].includes(load_type)) {
-    return res.redirect('/inventario/movimientos/new?error=Selecciona el tipo de carga');
+    return renderNewMovementError(req, res, 'Selecciona el tipo de carga', { errorFields: ['load_type'] });
   }
 
-  const { lines, error: parseError } = parseLinesFromBody(req.body, type);
+  const { lines, error: parseError, errorItemKey: parseErrorKey } = parseLinesFromBody(req.body, type);
   if (parseError) {
-    return res.redirect(`/inventario/movimientos/new?error=${encodeURIComponent(parseError)}`);
+    return renderNewMovementError(req, res, parseError, { errorItemKey: parseErrorKey });
   }
 
   if (type === 'traspaso') {
     if (!from_warehouse_id || !to_warehouse_id) {
-      return res.redirect('/inventario/movimientos/new?error=Selecciona bodega origen y destino');
+      return renderNewMovementError(req, res, 'Selecciona bodega origen y destino', {
+        errorFields: [!from_warehouse_id && 'from_warehouse_id', !to_warehouse_id && 'to_warehouse_id'].filter(Boolean)
+      });
     }
     if (from_warehouse_id === to_warehouse_id) {
-      return res.redirect('/inventario/movimientos/new?error=La bodega origen y destino deben ser distintas');
+      return renderNewMovementError(req, res, 'La bodega origen y destino deben ser distintas', {
+        errorFields: ['from_warehouse_id', 'to_warehouse_id']
+      });
     }
   } else if (!warehouse_id) {
-    return res.redirect('/inventario/movimientos/new?error=Selecciona la bodega');
+    return renderNewMovementError(req, res, 'Selecciona la bodega', { errorFields: ['warehouse_id'] });
   }
 
   const warehouseContext = { warehouse_id, from_warehouse_id, to_warehouse_id };
-  const { resolved, error: resolveError } = await resolveLines(db, lines, type, warehouseContext);
+  const { resolved, error: resolveError, errorItemKey: resolveErrorKey } = await resolveLines(db, lines, type, warehouseContext);
   if (resolveError) {
-    return res.redirect(`/inventario/movimientos/new?error=${encodeURIComponent(resolveError)}`);
+    return renderNewMovementError(req, res, resolveError, { errorItemKey: resolveErrorKey });
   }
 
   let batchId;
@@ -704,7 +750,7 @@ router.post('/', requirePermission('movimientos', 'agregar'), asyncHandler(async
     await tx.commit();
   } catch (err) {
     await tx.rollback();
-    return res.redirect('/inventario/movimientos/new?error=No se pudo registrar el movimiento');
+    return renderNewMovementError(req, res, 'No se pudo registrar el movimiento');
   }
 
   const typeLabel = type === 'in' ? 'entrada' : type === 'out' ? 'salida' : 'traspaso';
@@ -782,7 +828,7 @@ router.get('/lote/:id/edit', requirePermission('movimientos', 'modificar'), asyn
     }
   }
 
-  res.render('movements/form', { items, warehouses, itemUnitOptions, batch, existingLines, prefill: null, importWarnings: null });
+  res.render('movements/form', { items, warehouses, itemUnitOptions, batch, existingLines, prefill: null, importWarnings: null, formError: null, errorItemKey: null, errorFields: [] });
 }));
 
 router.post('/lote/:id', requirePermission('movimientos', 'modificar'), asyncHandler(async (req, res) => {

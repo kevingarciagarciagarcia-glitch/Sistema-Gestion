@@ -346,6 +346,15 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--primary);
 }
 
+.input-error {
+  border-color: var(--danger) !important;
+  background: #fef2f2;
+}
+
+.input-error:focus {
+  outline: 2px solid #fecaca;
+}
+
 .alert {
   padding: 0.7rem 1rem;
   border-radius: 8px;
